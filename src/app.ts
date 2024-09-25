@@ -1,4 +1,5 @@
 import express, { Request, Response } from 'express';
+import userRoutes from './routes/userRoutes';
 import dotenv from 'dotenv';
 
 // ensure environment variables are loaded first
@@ -11,6 +12,8 @@ const PORT = process.env.PORT || 3002;
 app.get('/', (req: Request, res: Response) => {
   res.send('hey buddy your server is running...');
 });
+
+app.use('/api', userRoutes);
 
 // start the server
 app.listen(PORT, () => {
