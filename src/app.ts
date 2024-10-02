@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import http from 'http';
-import cors from 'cors'
+import cors from 'cors';
 import { Server } from 'socket.io';
 import userRoutes from './routes/userRoutes';
 import { Pool } from 'pg';
@@ -18,7 +18,6 @@ if (!process.env.DB_USER || !process.env.DB_HOST || !process.env.DB_NAME || !pro
 
 const app = express();
 const PORT = process.env.PORT || 3002;
-
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
@@ -38,12 +37,12 @@ pool.on('error', (err) => {
 export const connectDB = async () => {
   try {
     console.log('Attempting to connect to Postgres...');
-    await pool.query('SELECT NOW()'); // simple query to check connection
+    await pool.query('SELECT NOW()');
     console.log('Postgres connected successfully');
   } catch (error) {
     console.error('Postgres connection failed:', (error as Error).message);
     console.error('Error stack:', (error as Error).stack);
-    process.exit(1); // exit if database connection fails
+    process.exit(1); 
   }
 };
 
@@ -68,20 +67,78 @@ app.use(cors({
 }));
 
 // middleware
-app.use(express.json()); // for parsing application/json
-app.use(express.urlencoded({ extended: true })); // for parsing application/x-www-form-urlencoded
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
+// check for active dancefloor
+const checkActiveDancefloorForDj = async (djId: string) => {
+  const result = await pool.query('SELECT * FROM dancefloors WHERE dj_id = $1 AND is_active = TRUE', [djId]);
+  return result.rows[0] || null;
+};
+
+// create dancefloor route
 app.post('/create-dancefloor', async (req: Request, res: Response) => {
+  const { djId } = req.body; 
   try {
     const dancefloorId = uuidv4();
-    const qrCodeUrl = await qrcode.toDataURL(`http://localhost:${PORT}/dancefloor/${dancefloorId}`)
+    const baseUrl = process.env.BACKEND_URL;
+    const qrCodeUrl = await qrcode.toDataURL(`${baseUrl}/dj/${djId}`);
+
+    // store the dancefloor data
     return res.json({
       dancefloorId,
       qrCodeUrl
-    })
+    });
   } catch (error) {
-    console.error('Error creating dancefloor:', error)
-    res.status(500).send('Failed to create dancefloor')
+    console.error('Error creating dancefloor:', error);
+    res.status(500).send('Failed to create dancefloor');
+  }
+});
+
+// DELETE THIS
+app.get('/djs', async (req: Request, res: Response) => {
+  try {
+    const result = await pool.query('SELECT * FROM djs'); // Assuming you have a "djs" table
+    res.status(200).json(result.rows);
+  } catch (error) {
+    console.error('Error fetching DJs:', error);
+    res.status(500).send('Error fetching DJs.');
+  }
+});
+
+// route to check for active dancefloor
+app.get('/dj/:djId', async (req: Request, res: Response) => {
+  const { djId } = req.params;
+
+  try {
+    const activeDancefloor = await checkActiveDancefloorForDj(djId);
+
+    if (activeDancefloor) {
+      res.redirect(`/dancefloor/${activeDancefloor.id}`);
+    } else {
+      res.send('No active dancefloor at the moment.');
+    }
+  } catch (error) {
+    console.error('Error fetching dancefloor:', error);
+    res.status(500).send('Error checking dancefloor status.');
+  }
+});
+
+app.get('/dancefloor/:dancefloorId', async (req: Request, res: Response) => {
+  const { dancefloorId } = req.params;
+
+  try {
+    // Fetch dancefloor details from the database (assuming a "dancefloors" table exists)
+    const result = await pool.query('SELECT * FROM dancefloors WHERE id = $1', [dancefloorId]);
+    
+    if (result.rows.length > 0) {
+      res.status(200).json(result.rows[0]);
+    } else {
+      res.status(404).send('Dancefloor not found.');
+    }
+  } catch (error) {
+    console.error('Error fetching dancefloor:', error);
+    res.status(500).send('Failed to fetch dancefloor.');
   }
 });
 
@@ -99,16 +156,15 @@ io.on('connection', (socket) => {
   socket.on('joinDancefloor', (dancefloorId) => {
     socket.join(dancefloorId);
     console.log(`User ${socket.id} joined dancefloor: ${dancefloorId}`);
-    
-    // notify others in the dancefloor
+
     io.to(dancefloorId).emit('message', `User ${socket.id} has joined the dancefloor`);
   });
 
-  // Event: handle messages (this could be used for chat or song requests)
+  // handle messages (this could be used for chat or song requests)
   socket.on('sendMessage', (data) => {
     const { dancefloorId, message } = data;
     console.log(`Message from ${socket.id} in dancefloor ${dancefloorId}: ${message}`);
-    
+
     // broadcast message to others in the dancefloor
     io.to(dancefloorId).emit('message', { userId: socket.id, message });
   });
