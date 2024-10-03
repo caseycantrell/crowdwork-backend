@@ -2,11 +2,10 @@ import express, { Request, Response } from 'express';
 import http from 'http';
 import cors from 'cors';
 import { Server } from 'socket.io';
-import userRoutes from './routes/userRoutes';
 import { Pool } from 'pg';
 import dotenv from 'dotenv';
-import qrcode from 'qrcode'; 
 import { v4 as uuidv4 } from 'uuid';
+import userRoutes from './routes/userRoutes';
 
 // ensure env vars are loaded first
 dotenv.config();
@@ -18,6 +17,7 @@ if (!process.env.DB_USER || !process.env.DB_HOST || !process.env.DB_NAME || !pro
 
 const app = express();
 const PORT = process.env.PORT || 3002;
+
 const pool = new Pool({
   user: process.env.DB_USER,
   host: process.env.DB_HOST,
@@ -30,7 +30,7 @@ pool.on('connect', () => {
   console.log('New client connected to Postgres');
 });
 
-pool.on('error', (err) => {
+pool.on('error', (err: Error) => {
   console.error('Unexpected error on idle Postgres client', err);
 });
 
@@ -41,7 +41,6 @@ export const connectDB = async () => {
     console.log('Postgres connected successfully');
   } catch (error) {
     console.error('Postgres connection failed:', (error as Error).message);
-    console.error('Error stack:', (error as Error).stack);
     process.exit(1); 
   }
 };
@@ -52,18 +51,18 @@ connectDB();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: 'http://localhost:8080',
+    origin: 'http://localhost:3000',
     methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type'],
-    credentials: true
+    credentials: true,
   },
 });
 
 // enable CORS
 app.use(cors({
-  origin: 'http://localhost:8080',
+  origin: ['http://localhost:3000', 'http://localhost:3002'],
   methods: ['GET', 'POST'],
-  credentials: true
+  credentials: true,
 }));
 
 // middleware
@@ -76,33 +75,46 @@ const checkActiveDancefloorForDj = async (djId: string) => {
   return result.rows[0] || null;
 };
 
-// create dancefloor route
-app.post('/create-dancefloor', async (req: Request, res: Response) => {
-  const { djId } = req.body; 
-  try {
-    const dancefloorId = uuidv4();
-    const baseUrl = process.env.BACKEND_URL;
-    const qrCodeUrl = await qrcode.toDataURL(`${baseUrl}/dj/${djId}`);
+// Start a dancefloor for the DJ
+app.post('/start-dancefloor', async (req: Request, res: Response) => {
+  const { djId } = req.body;
 
-    // store the dancefloor data
-    return res.json({
-      dancefloorId,
-      qrCodeUrl
-    });
+  try {
+    // Deactivate any existing active dancefloor for the DJ
+    await pool.query(
+      'UPDATE dancefloors SET is_active = FALSE WHERE dj_id = $1 AND is_active = TRUE',
+      [djId]
+    );
+
+    // Create and activate the new dancefloor
+    const dancefloorId = uuidv4();
+    await pool.query(
+      'INSERT INTO dancefloors (id, dj_id, is_active) VALUES ($1, $2, TRUE)',
+      [dancefloorId, djId]
+    );
+
+    res.status(200).json({ dancefloorId });
   } catch (error) {
-    console.error('Error creating dancefloor:', error);
-    res.status(500).send('Failed to create dancefloor');
+    console.error('Error starting dancefloor:', error);
+    res.status(500).send('Failed to start dancefloor');
   }
 });
 
-// DELETE THIS
-app.get('/djs', async (req: Request, res: Response) => {
+// Stop a dancefloor for the DJ
+app.post('/stop-dancefloor', async (req: Request, res: Response) => {
+  const { djId } = req.body;
+
   try {
-    const result = await pool.query('SELECT * FROM djs'); // Assuming you have a "djs" table
-    res.status(200).json(result.rows);
+    // Deactivate any active dancefloor for the DJ
+    await pool.query(
+      'UPDATE dancefloors SET is_active = FALSE WHERE dj_id = $1 AND is_active = TRUE',
+      [djId]
+    );
+
+    res.status(200).send('Dancefloor stopped.');
   } catch (error) {
-    console.error('Error fetching DJs:', error);
-    res.status(500).send('Error fetching DJs.');
+    console.error('Error stopping dancefloor:', error);
+    res.status(500).send('Failed to stop dancefloor');
   }
 });
 
@@ -124,13 +136,13 @@ app.get('/dj/:djId', async (req: Request, res: Response) => {
   }
 });
 
+// route to get dancefloor details
 app.get('/dancefloor/:dancefloorId', async (req: Request, res: Response) => {
   const { dancefloorId } = req.params;
 
   try {
-    // Fetch dancefloor details from the database (assuming a "dancefloors" table exists)
     const result = await pool.query('SELECT * FROM dancefloors WHERE id = $1', [dancefloorId]);
-    
+
     if (result.rows.length > 0) {
       res.status(200).json(result.rows[0]);
     } else {
@@ -142,10 +154,9 @@ app.get('/dancefloor/:dancefloorId', async (req: Request, res: Response) => {
   }
 });
 
-
 // basic route for now
 app.get('/', (req: Request, res: Response) => {
-  res.send('hey buddy your server is running...');
+  res.send('Server is running...');
 });
 
 // socket.io connection handler
@@ -160,16 +171,34 @@ io.on('connection', (socket) => {
     io.to(dancefloorId).emit('message', `User ${socket.id} has joined the dancefloor`);
   });
 
-  // handle messages (this could be used for chat or song requests)
+  // Handle song requests
+  socket.on('songRequest', async (data) => {
+    const { dancefloorId, song } = data;
+    console.log(`Song request from ${socket.id} in dancefloor ${dancefloorId}: ${song}`);
+
+    try {
+      const requestId = uuidv4();  // Generate a unique ID for the request
+      await pool.query(
+        'INSERT INTO song_requests (id, dancefloor_id, user_id, song, created_at) VALUES ($1, $2, $3, $4, NOW())',
+        [requestId, dancefloorId, socket.id, song]
+      );
+      console.log('Song request saved to the database');
+    } catch (error) {
+      console.error('Error saving song request:', error);
+    }
+
+    io.to(dancefloorId).emit('songRequest', { userId: socket.id, song });
+  });
+
+  // handle messages
   socket.on('sendMessage', (data) => {
     const { dancefloorId, message } = data;
     console.log(`Message from ${socket.id} in dancefloor ${dancefloorId}: ${message}`);
 
-    // broadcast message to others in the dancefloor
-    io.to(dancefloorId).emit('message', { userId: socket.id, message });
+    // Emit the message to the dancefloor
+    io.to(dancefloorId).emit('message', message);
   });
 
-  // disconnect handler
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
   });
@@ -180,7 +209,7 @@ app.use('/api', userRoutes);
 // start the server
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-}).on('error', (err) => {
+}).on('error', (err: Error) => {
   console.error('Failed to start server:', err);
 });
 
@@ -192,11 +221,11 @@ process.on('SIGINT', async () => {
 });
 
 // handle uncaught exceptions and rejections
-process.on('unhandledRejection', (reason, promise) => {
+process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-process.on('uncaughtException', (error) => {
+process.on('uncaughtException', (error: Error) => {
   console.error('Uncaught Exception:', error.message);
   console.error('Error Stack:', error.stack);
 });
