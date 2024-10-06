@@ -120,6 +120,32 @@ app.post('/api/stop-dancefloor', async (req: Request, res: Response) => {
   }
 });
 
+// Endpoint to save a message
+app.post('/api/dancefloor/:dancefloorId/message', async (req: Request, res: Response) => {
+  const { dancefloorId } = req.params;
+  const { message } = req.body; // assuming you send the message in the request body
+
+  // Enforce character limit
+  if (message.length > 300) {
+    return res.status(400).json({ error: 'Message exceeds maximum length of 300 characters.' });
+  }
+
+  try {
+    await pool.query(
+      'INSERT INTO messages (dancefloor_id, message, created_at) VALUES ($1, $2, NOW())',
+      [dancefloorId, message]
+    );
+
+    // Emit the message to the dancefloor so that all users can see it
+    io.to(dancefloorId).emit('message', message);
+
+    res.status(200).json({ message: 'Message sent successfully.' });
+  } catch (error) {
+    console.error('Error saving message:', error);
+    res.status(500).json({ error: 'Failed to send message.' });
+  }
+});
+
 // Route to check for active dancefloor
 app.get('/api/dj/:djId', async (req: Request, res: Response) => {
   const { djId } = req.params;
@@ -182,6 +208,20 @@ app.get('/api/dancefloor/:dancefloorId/song-requests', async (req: Request, res:
   } catch (error) {
     console.error('Error fetching song requests:', error);
     res.status(500).json({ error: 'Failed to fetch song requests.' });
+  }
+});
+
+// Fetch messages for a dancefloor
+app.get('/api/dancefloor/:dancefloorId/messages', async (req: Request, res: Response) => {
+  const { dancefloorId } = req.params;
+
+  try {
+    const result = await pool.query('SELECT * FROM messages WHERE dancefloor_id = $1 ORDER BY created_at ASC', [dancefloorId]);
+
+    res.status(200).json(result.rows);
+  } catch (error) {
+    console.error('Error fetching messages:', error);
+    res.status(500).json({ error: 'Failed to fetch messages.' });
   }
 });
 
@@ -272,16 +312,44 @@ app.put('/api/song-request/:requestId/play', async (req: Request, res: Response)
   const { requestId } = req.params;
 
   try {
-    await pool.query(
-      'UPDATE song_requests SET status = $1 WHERE id = $2',
-      ['playing', requestId]
+    // Find the dancefloor ID of the request so we can emit the event to the correct room
+    const dancefloorResult = await pool.query(
+      'SELECT dancefloor_id FROM song_requests WHERE id = $1',
+      [requestId]
     );
+
+    if (dancefloorResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Song request not found.' });
+    }
+
+    const dancefloorId = dancefloorResult.rows[0].dancefloor_id;
+
+    // Find the currently playing song and set it back to 'queued'
+    const currentlyPlaying = await pool.query(
+      'SELECT id FROM song_requests WHERE status = $1 AND dancefloor_id = $2 FOR UPDATE',
+      ['playing', dancefloorId]
+    );
+
+    if (currentlyPlaying.rows.length > 0) {
+      const playingSongId = currentlyPlaying.rows[0].id;
+      console.log(`Setting song ${playingSongId} back to queued`);
+      await pool.query('UPDATE song_requests SET status = $1 WHERE id = $2', ['queued', playingSongId]);
+    }
+
+    console.log(`Setting song ${requestId} to playing`);
+    // Set the selected song to 'playing'
+    await pool.query('UPDATE song_requests SET status = $1 WHERE id = $2', ['playing', requestId]);
+
+    // Emit the update to the frontend for the specific dancefloor
+    io.to(dancefloorId).emit('statusUpdate', { requestId, status: 'playing' });
+
     res.status(200).json({ message: 'Song is now playing.' });
   } catch (error) {
     console.error('Error updating song status to playing:', error);
     res.status(500).json({ error: 'Failed to update song status.' });
   }
 });
+
 
 // mark a song as completed
 app.put('/api/song-request/:requestId/complete', async (req: Request, res: Response) => {
