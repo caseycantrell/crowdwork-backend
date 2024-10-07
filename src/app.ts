@@ -121,13 +121,14 @@ app.post('/api/stop-dancefloor', async (req: Request, res: Response) => {
 });
 
 // Endpoint to save a message
-app.post('/api/dancefloor/:dancefloorId/message', async (req: Request, res: Response) => {
+app.post('/api/dancefloor/:dancefloorId/message', async (req: Request, res: Response): Promise<void> => {
   const { dancefloorId } = req.params;
   const { message } = req.body; // assuming you send the message in the request body
 
   // Enforce character limit
   if (message.length > 300) {
-    return res.status(400).json({ error: 'Message exceeds maximum length of 300 characters.' });
+    res.status(400).json({ error: 'Message exceeds maximum length of 300 characters.' });
+    return;
   }
 
   try {
@@ -226,13 +227,14 @@ app.get('/api/dancefloor/:dancefloorId/messages', async (req: Request, res: Resp
 });
 
 // update the status of a song request
-app.put('/api/song-request/:requestId/status', async (req: Request, res: Response) => {
+app.put('/api/song-request/:requestId/status', async (req: Request, res: Response): Promise<void> => {
   const { requestId } = req.params;
   const { status } = req.body; // expecting 'queued', 'playing', or 'completed'
 
   // check for valid statuses
   if (!['queued', 'playing', 'completed'].includes(status)) {
-    return res.status(400).json({ error: 'Invalid status value.' });
+    res.status(400).json({ error: 'Invalid status value.' });
+    return;
   }
 
   try {
@@ -269,7 +271,7 @@ app.put('/api/dancefloor/:dancefloorId/reorder', async (req: Request, res: Respo
 });
 
 // vote for a song request
-app.put('/api/song-request/:requestId/vote', async (req: Request, res: Response) => {
+app.put('/api/song-request/:requestId/vote', async (req: Request, res: Response): Promise<void> => {
   const { requestId } = req.params;
   const { userId } = req.body;
 
@@ -281,7 +283,8 @@ app.put('/api/song-request/:requestId/vote', async (req: Request, res: Response)
     );
 
     if (existingVote.rows.length > 0) {
-      return res.status(400).json({ error: 'You have already voted for this song request.' });
+      res.status(400).json({ error: 'You have already voted for this song request.' });
+      return;
     }
 
     // if no existing vote, insert the vote into the `votes` table
@@ -308,7 +311,7 @@ app.put('/api/song-request/:requestId/vote', async (req: Request, res: Response)
 });
 
 // start playing a song
-app.put('/api/song-request/:requestId/play', async (req: Request, res: Response) => {
+app.put('/api/song-request/:requestId/play', async (req: Request, res: Response): Promise<void> => {
   const { requestId } = req.params;
 
   try {
@@ -319,7 +322,8 @@ app.put('/api/song-request/:requestId/play', async (req: Request, res: Response)
     );
 
     if (dancefloorResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Song request not found.' });
+      res.status(404).json({ error: 'Song request not found.' });
+      return;
     }
 
     const dancefloorId = dancefloorResult.rows[0].dancefloor_id;
