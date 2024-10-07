@@ -8,7 +8,7 @@ import { v4 as uuidv4 } from 'uuid';
 import userRoutes from './routes/userRoutes';
 import session from 'express-session';
 import bcrypt from 'bcrypt';
-
+import sessionRoutes from './routes/sessionRoutes'
 
 // ensure env vars are loaded first
 dotenv.config();
@@ -91,7 +91,7 @@ app.use(session({
   }
 }));
 
-// Authentication Middleware
+// authentication middleware
 function isAuthenticated(req: Request, res: Response, next: Function) {
   if (req.session.dj) {
     return next(); // If DJ is logged in, proceed
@@ -227,7 +227,6 @@ app.post('/logout', (req: Request, res: Response) => {
 app.post('/signup', async (req: Request, res: Response) => {
   const { email, name, password } = req.body;
 
-  // Ensure all required fields are provided
   if (!email || !name || !password) {
     return res.status(400).json({ message: 'All fields are required' });
   }
@@ -239,21 +238,31 @@ app.post('/signup', async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'DJ with this email already exists' });
     }
 
-    // Hash the password before storing it
-    const hashedPassword = await bcrypt.hash(password, 10); // Hash with a salt round of 10
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     // Insert the new DJ into the database
-    await pool.query(
-      'INSERT INTO djs (name, email, password) VALUES ($1, $2, $3)',
+    const result = await pool.query(
+      'INSERT INTO djs (name, email, password) VALUES ($1, $2, $3) RETURNING id',
       [name, email, hashedPassword]
     );
 
-    res.status(201).json({ message: 'DJ registered successfully. You can now log in.' });
+    const newDjId = result.rows[0].id;
+
+    // auto-login the new DJ by setting the session
+    req.session.dj = { id: newDjId, name, email };
+
+    // send back success with the DJ info to redirect to their DJ page
+    res.status(201).json({
+      message: 'DJ registered and logged in successfully.',
+      djId: newDjId, // send the new DJ's ID for frontend redirect
+    });
   } catch (error) {
     console.error('Error registering DJ:', error);
     res.status(500).json({ message: 'Server error during registration' });
   }
 });
+
 
 
 // check for active dancefloor
@@ -552,6 +561,9 @@ socket.on('songRequest', async (data) => {
 
 // apply user routes
 app.use('/api', userRoutes);
+
+// spply session routes
+app.use('/api', sessionRoutes);
 
 // start the server
 server.listen(PORT, () => {
