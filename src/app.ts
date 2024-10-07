@@ -6,6 +6,9 @@ import { Pool } from 'pg';
 import dotenv from 'dotenv';
 import { v4 as uuidv4 } from 'uuid';
 import userRoutes from './routes/userRoutes';
+import session from 'express-session';
+import bcrypt from 'bcrypt';
+
 
 // ensure env vars are loaded first
 dotenv.config();
@@ -14,6 +17,12 @@ dotenv.config();
 if (!process.env.DB_USER || !process.env.DB_HOST || !process.env.DB_NAME || !process.env.DB_PASSWORD || !process.env.DB_PORT) {
   throw new Error('DB env variables are not set correctly');
 }
+
+// declare module 'express-session' {
+//   interface SessionData {
+//     dj: { id: number; name: string; email: string };
+//   }
+// }
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -70,25 +79,46 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Add the session middleware
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your_secure_secret_key', // Use a secure secret key
+  resave: false, // Don't save session if unmodified
+  saveUninitialized: false, // Don't create session until something is stored
+  cookie: {
+    maxAge: 1000 * 60 * 60 * 24, // 1 day expiration
+    secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
+    httpOnly: true, // Prevents client-side JavaScript from accessing the cookie
+  }
+}));
+
+// Authentication Middleware
+function isAuthenticated(req: Request, res: Response, next: Function) {
+  if (req.session.dj) {
+    return next(); // If DJ is logged in, proceed
+  } else {
+    return res.status(401).json({ message: 'Unauthorized access, please log in first' });
+  }
+}
+
 // check for active dancefloor
 const checkActiveDancefloorForDj = async (djId: string) => {
   const result = await pool.query('SELECT * FROM dancefloors WHERE dj_id = $1 AND is_active = TRUE', [djId]);
   return result.rows[0] || null;
 };
 
-// Start a dancefloor for the DJ
+// start a dancefloor
 app.post('/api/start-dancefloor', async (req: Request, res: Response) => {
   const { djId } = req.body;
   console.log('Starting dancefloor for DJ:', djId);
 
   try {
-    // Deactivate any existing active dancefloor for the DJ
+    // deactivate any existing active dancefloor
     await pool.query(
       'UPDATE dancefloors SET is_active = FALSE WHERE dj_id = $1 AND is_active = TRUE',
       [djId]
     );
 
-    // Create and activate the new dancefloor
+    // create and activate the new dancefloor
     const dancefloorId = uuidv4();
     await pool.query(
       'INSERT INTO dancefloors (id, dj_id, is_active) VALUES ($1, $2, TRUE)',
@@ -102,12 +132,12 @@ app.post('/api/start-dancefloor', async (req: Request, res: Response) => {
   }
 });
 
-// Stop a dancefloor for the DJ
+// stop a dancefloor
 app.post('/api/stop-dancefloor', async (req: Request, res: Response) => {
   const { djId } = req.body;
 
   try {
-    // Deactivate any active dancefloor for the DJ
+    // deactivate any active dancefloor
     await pool.query(
       'UPDATE dancefloors SET is_active = FALSE WHERE dj_id = $1 AND is_active = TRUE',
       [djId]
@@ -120,10 +150,10 @@ app.post('/api/stop-dancefloor', async (req: Request, res: Response) => {
   }
 });
 
-// Endpoint to save a message
+// save message
 app.post('/api/dancefloor/:dancefloorId/message', async (req: Request, res: Response): Promise<void> => {
   const { dancefloorId } = req.params;
-  const { message } = req.body; // assuming you send the message in the request body
+  const { message } = req.body;
 
   // Enforce character limit
   if (message.length > 300) {
@@ -137,7 +167,7 @@ app.post('/api/dancefloor/:dancefloorId/message', async (req: Request, res: Resp
       [dancefloorId, message]
     );
 
-    // Emit the message to the dancefloor so that all users can see it
+    // emit the message to the dancefloor so that all users can see it
     io.to(dancefloorId).emit('message', message);
 
     res.status(200).json({ message: 'Message sent successfully.' });
@@ -147,7 +177,86 @@ app.post('/api/dancefloor/:dancefloorId/message', async (req: Request, res: Resp
   }
 });
 
-// Route to check for active dancefloor
+// login route
+app.post('/login', async (req: Request, res: Response) => {
+  const { email, password } = req.body;
+
+  try {
+    // query the db to find the DJ by email
+    const result = await pool.query('SELECT id, name, email, password FROM djs WHERE email = $1', [email]);
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({ message: 'Invalid email or password' });
+    }
+
+    const dj = result.rows[0];
+
+    // const isPasswordValid = password === dj.password;
+    const isPasswordValid = await bcrypt.compare(password, dj.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Invalid email or password' });
+    }
+
+    // store DJ info in the session
+    req.session.dj = { id: dj.id, name: dj.name, email: dj.email };
+
+    res.status(200).json({
+      message: 'Logged in successfully',
+      dj: { id: dj.id, name: dj.name, email: dj.email }, // sending DJ details to the frontend
+    });
+    
+  } catch (error) {
+    console.error('Error during login:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// logout route
+app.post('/logout', (req: Request, res: Response) => {
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('Error destroying session:', err);
+      return res.status(500).json({ message: 'Failed to log out' });
+    }
+    res.clearCookie('connect.sid'); // Clears the session cookie
+    res.status(200).json({ message: 'Logged out successfully' });
+  });
+});
+
+// signup route
+app.post('/signup', async (req: Request, res: Response) => {
+  const { email, name, password } = req.body;
+
+  // Ensure all required fields are provided
+  if (!email || !name || !password) {
+    return res.status(400).json({ message: 'All fields are required' });
+  }
+
+  try {
+    // Check if the DJ already exists
+    const existingDJ = await pool.query('SELECT * FROM djs WHERE email = $1', [email]);
+    if (existingDJ.rows.length > 0) {
+      return res.status(400).json({ message: 'DJ with this email already exists' });
+    }
+
+    // Hash the password before storing it
+    const hashedPassword = await bcrypt.hash(password, 10); // Hash with a salt round of 10
+
+    // Insert the new DJ into the database
+    await pool.query(
+      'INSERT INTO djs (name, email, password) VALUES ($1, $2, $3)',
+      [name, email, hashedPassword]
+    );
+
+    res.status(201).json({ message: 'DJ registered successfully. You can now log in.' });
+  } catch (error) {
+    console.error('Error registering DJ:', error);
+    res.status(500).json({ message: 'Server error during registration' });
+  }
+});
+
+
+// check for active dancefloor
 app.get('/api/dj/:djId', async (req: Request, res: Response) => {
   const { djId } = req.params;
 
@@ -165,7 +274,7 @@ app.get('/api/dj/:djId', async (req: Request, res: Response) => {
   }
 });
 
-// Route to get dancefloor details
+// get dancefloor details
 app.get('/api/dancefloor/:dancefloorId', async (req: Request, res: Response) => {
   const { dancefloorId } = req.params;
 
@@ -183,7 +292,7 @@ app.get('/api/dancefloor/:dancefloorId', async (req: Request, res: Response) => 
   }
 });
 
-// Route to fetch all DJs
+// fetch all DJs
 app.get('/api/djs', async (req: Request, res: Response) => {
   try {
     const result = await pool.query('SELECT * FROM djs');
@@ -212,7 +321,7 @@ app.get('/api/dancefloor/:dancefloorId/song-requests', async (req: Request, res:
   }
 });
 
-// Fetch messages for a dancefloor
+// fetch messages for a dancefloor
 app.get('/api/dancefloor/:dancefloorId/messages', async (req: Request, res: Response) => {
   const { dancefloorId } = req.params;
 
@@ -224,6 +333,11 @@ app.get('/api/dancefloor/:dancefloorId/messages', async (req: Request, res: Resp
     console.error('Error fetching messages:', error);
     res.status(500).json({ error: 'Failed to fetch messages.' });
   }
+});
+
+// protected route
+app.get('/api/protected', isAuthenticated, (req: Request, res: Response) => {
+  res.status(200).json({ message: 'You have accessed a protected route' });
 });
 
 // update the status of a song request
