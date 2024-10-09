@@ -1,7 +1,5 @@
 import { Router, Request, Response } from 'express';
-import bcrypt from 'bcrypt';
 import { pool } from '../config/db';
-import QRCode from 'qrcode';
 import { getIo } from '../socket';
 
 const router = Router();
@@ -52,33 +50,15 @@ router.put('/song-request/:requestId/status', async (req: Request, res: Response
   // vote for a song request
   router.put('/song-request/:requestId/vote', async (req: Request, res: Response): Promise<void> => {
     const { requestId } = req.params;
-    const { userId } = req.body;
   
     try {
-      // check if the user has already voted for this request
-      const existingVote = await pool.query(
-        'SELECT * FROM votes WHERE user_id = $1 AND song_request_id = $2',
-        [userId, requestId]
-      );
-  
-      if (existingVote.rows.length > 0) {
-        res.status(400).json({ error: 'You have already voted for this song request.' });
-        return;
-      }
-  
-      // if no existing vote, insert the vote into the `votes` table
-      await pool.query(
-        'INSERT INTO votes (user_id, song_request_id) VALUES ($1, $2)',
-        [userId, requestId]
-      );
-  
-      // increment the vote count for the song request
+      // Increment the vote count for the song request
       await pool.query(
         'UPDATE song_requests SET votes = votes + 1 WHERE id = $1',
         [requestId]
       );
   
-      // fetch the updated vote count and return it
+      // Fetch the updated vote count and return it
       const result = await pool.query('SELECT votes FROM song_requests WHERE id = $1', [requestId]);
       const updatedVotes = result.rows[0].votes;
   
@@ -88,6 +68,7 @@ router.put('/song-request/:requestId/status', async (req: Request, res: Response
       res.status(500).json({ error: 'Failed to add vote.' });
     }
   });
+  
   
   // start playing a song
   router.put('/song-request/:requestId/play', async (req: Request, res: Response): Promise<void> => {

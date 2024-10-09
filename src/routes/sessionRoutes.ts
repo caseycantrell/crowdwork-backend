@@ -5,6 +5,8 @@ import QRCode from 'qrcode';
 
 const router = Router();
 
+require('dotenv').config();
+
 // login route
 router.post('/login', async (req: Request, res: Response) => {
   const { email, password } = req.body;
@@ -74,7 +76,7 @@ router.post('/signup', async (req: Request, res: Response) => {
     const newDjId = result.rows[0].id;
 
     // generate the URL for the DJ's page
-    const djUrl = `http://localhost:3000/dj/${newDjId}`;
+    const djUrl = `${process.env.FRONTEND_URL}/dj/${newDjId}?redirect=dancefloor`;
 
     // generate the QR code for the DJ's URL
     const qrCodeData = await QRCode.toDataURL(djUrl); // base64 string
