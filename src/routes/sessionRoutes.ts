@@ -2,10 +2,17 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import { pool } from '../config/db';
 import QRCode from 'qrcode';
+import { sendErrorResponse } from '../utils/helpers';
 
 const router = Router();
 
 require('dotenv').config();
+
+const isPasswordStrong = (password: string) => {
+  // minimum 8 characters, at least 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character
+  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+  return passwordRegex.test(password);
+};
 
 // login route
 router.post('/login', async (req: Request, res: Response) => {
@@ -34,7 +41,7 @@ router.post('/login', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error during login:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    sendErrorResponse(res, 500, 'Internal server error.');
   }
 });
 
@@ -43,7 +50,7 @@ router.post('/logout', (req: Request, res: Response) => {
   req.session.destroy((err) => {
     if (err) {
       console.error('Error destroying session:', err);
-      return res.status(500).json({ message: 'Failed to log out' });
+      return sendErrorResponse(res, 500, 'Failed to log out.');
     }
     res.clearCookie('connect.sid');
     res.status(200).json({ message: 'Logged out successfully' });
@@ -55,14 +62,22 @@ router.post('/signup', async (req: Request, res: Response) => {
   const { email, name, password } = req.body;
 
   if (!email || !name || !password) {
-    return res.status(400).json({ message: 'All fields are required' });
+    return sendErrorResponse(res, 400, 'All fields are required.');
+  }
+  
+  if (!isPasswordStrong(password)) {
+    return sendErrorResponse(res, 400, 'Password must be at least 8 characters long and include at least one uppercase letter, one lowercase letter, one number, and one special character.');
+  }
+
+  if (!process.env.FRONTEND_URL) {
+    return sendErrorResponse(res, 500, 'Server configuration error: FRONTEND_URL is not set.');
   }
 
   try {
     // check if the DJ already exists
     const existingDJ = await pool.query('SELECT * FROM djs WHERE email = $1', [email]);
     if (existingDJ.rows.length > 0) {
-      return res.status(400).json({ message: 'DJ with this email already exists' });
+      return sendErrorResponse(res, 400, 'DJ with this email already exists.');
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -94,7 +109,7 @@ router.post('/signup', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error registering DJ:', error);
-    res.status(500).json({ message: 'Server error during registration' });
+    sendErrorResponse(res, 500, 'Server error during registration.');
   }
 });
 

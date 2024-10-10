@@ -1,16 +1,22 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../config/db';
+import { sendErrorResponse } from '../utils/helpers';
 
 const router = Router();
 
 // function to check the active dancefloor for a DJ
 const checkActiveDancefloorForDj = async (djId: string) => {
-  const result = await pool.query(
-    "SELECT * FROM dancefloors WHERE dj_id = $1 AND status = 'active'",
-    [djId]
-  );
-  console.log("Active Dancefloor Check:", result.rows);
-  return result.rows[0] || null;
+  try {
+    const result = await pool.query(
+      "SELECT * FROM dancefloors WHERE dj_id = $1 AND status = 'active'",
+      [djId]
+    );
+    console.log("Active Dancefloor Check:", result.rows);
+    return result.rows[0] || null;
+  } catch (error) {
+    console.error('Error checking active dancefloor:', error);
+    throw new Error('Failed to check active dancefloor.');
+  }
 };
 
 // fetch all DJs
@@ -20,7 +26,7 @@ router.get('/djs', async (req: Request, res: Response) => {
     res.status(200).json(result.rows);
   } catch (error) {
     console.error('Error fetching DJs:', error);
-    res.status(500).json({ error: 'Failed to fetch DJs.' });
+    sendErrorResponse(res, 500, 'Failed to fetch DJs.');
   }
 });
 
@@ -35,7 +41,7 @@ router.get('/dj/:djId', async (req: Request, res: Response) => {
     );
 
     if (djResult.rows.length === 0) {
-      return res.status(404).json({ message: 'DJ not found' });
+      return sendErrorResponse(res, 404, 'DJ not found');
     }
 
     const {
@@ -53,7 +59,7 @@ router.get('/dj/:djId', async (req: Request, res: Response) => {
     const isActive = !!activeDancefloor;
     const dancefloorId = activeDancefloor ? activeDancefloor.id : null;
 
-    const isDjLoggedIn = req.session.dj && String(req.session.dj.id) === djId;
+    const isDjLoggedIn = req.session?.dj && String(req.session.dj.id) === djId;
 
     res.status(200).json({
       qrCode,
@@ -70,7 +76,7 @@ router.get('/dj/:djId', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error fetching DJ info or active dancefloor:', error);
-    res.status(500).json({ error: 'Error fetching DJ info' });
+    sendErrorResponse(res, 500, 'Error fetching DJ info.');
   }
 });
 
@@ -88,13 +94,13 @@ router.put('/dj/:djId', async (req: Request, res: Response) => {
     );
 
     if (result.rowCount === 0) {
-      return res.status(404).json({ message: 'DJ not found' });
+      return sendErrorResponse(res, 404, 'DJ not found.');
     }
 
     res.status(200).json({ message: 'DJ info updated successfully', dj: result.rows[0] });
   } catch (error) {
     console.error('Error updating DJ info:', error);
-    res.status(500).json({ message: 'Error updating DJ info' });
+    sendErrorResponse(res, 500, 'Error updating DJ info.');
   }
 });
 
@@ -111,7 +117,7 @@ router.get('/dj/:djId/past-dancefloors', async (req: Request, res: Response) => 
     res.status(200).json(result.rows);
   } catch (error) {
     console.error('Error fetching past dancefloors:', error);
-    res.status(500).json({ error: 'Failed to fetch past dancefloors.' });
+    sendErrorResponse(res, 500, 'Failed to fetch past dancefloors.');
   }
 });
 

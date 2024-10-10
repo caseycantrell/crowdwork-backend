@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { pool } from '../config/db';
 import { getIo } from '../socket';
+import { sendErrorResponse } from '../utils/helpers';
 
 const router = Router();
 
@@ -11,7 +12,7 @@ router.put('/song-request/:requestId/status', async (req: Request, res: Response
   
     // check for valid statuses
     if (!['queued', 'playing', 'completed', 'declined'].includes(status)) {
-      res.status(400).json({ error: 'Invalid status value.' });
+      sendErrorResponse(res, 400, 'Invalid status value.')
       return;
     }
   
@@ -23,7 +24,7 @@ router.put('/song-request/:requestId/status', async (req: Request, res: Response
       res.status(200).json({ message: 'Song request status updated.' });
     } catch (error) {
       console.error('Error updating song request status:', error);
-      res.status(500).json({ error: 'Failed to update song request status.' });
+      sendErrorResponse(res, 500, 'Failed to update song request status.')
     }
   });
   
@@ -43,7 +44,7 @@ router.put('/song-request/:requestId/status', async (req: Request, res: Response
       res.status(200).json({ message: 'Song requests reordered successfully.' });
     } catch (error) {
       console.error('Error reordering song requests:', error);
-      res.status(500).json({ error: 'Failed to reorder song requests.' });
+      sendErrorResponse(res, 500, 'Failed to reorder song requests.')
     }
   });
   
@@ -65,7 +66,7 @@ router.put('/song-request/:requestId/status', async (req: Request, res: Response
       res.status(200).json({ message: 'Vote added successfully.', votes: updatedVotes });
     } catch (error) {
       console.error('Error processing vote:', error);
-      res.status(500).json({ error: 'Failed to add vote.' });
+      sendErrorResponse(res, 500, 'Failed to add vote.')
     }
   });
   
@@ -83,7 +84,7 @@ router.put('/song-request/:requestId/status', async (req: Request, res: Response
       );
   
       if (dancefloorResult.rows.length === 0) {
-        res.status(404).json({ error: 'Song request not found.' });
+        sendErrorResponse(res, 404, 'Song request not found.')
         return;
       }
   
@@ -111,7 +112,7 @@ router.put('/song-request/:requestId/status', async (req: Request, res: Response
       res.status(200).json({ message: 'Song is now playing.' });
     } catch (error) {
       console.error('Error updating song status to playing:', error);
-      res.status(500).json({ error: 'Failed to update song status.' });
+      sendErrorResponse(res, 500, 'Failed to update song status.')
     }
   });
   
@@ -128,7 +129,7 @@ router.put('/song-request/:requestId/status', async (req: Request, res: Response
       res.status(200).json({ message: 'Song has been marked as completed.' });
     } catch (error) {
       console.error('Error updating song status to completed:', error);
-      res.status(500).json({ error: 'Failed to update song status.' });
+      sendErrorResponse(res, 500, 'Failed to update song status.');
     }
   });
   
@@ -141,7 +142,7 @@ router.put('/song-request/:requestId/status', async (req: Request, res: Response
       res.status(200).json({ message: 'Song request declined successfully.' });
     } catch (error) {
       console.error('Error declining song request:', error);
-      res.status(500).json({ error: 'Failed to decline song request.' });
+      sendErrorResponse(res, 500, 'Failed to decline song request.')
     }
   });
 

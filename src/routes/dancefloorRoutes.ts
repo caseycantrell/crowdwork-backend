@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { pool } from '../config/db';
 import { v4 as uuidv4 } from 'uuid';
 import { getIo } from '../socket';
+import { sendErrorResponse } from '../utils/helpers';
 
 const router = Router();
 
@@ -27,7 +28,7 @@ router.post('/start-dancefloor', async (req: Request, res: Response) => {
     res.status(200).json({ dancefloorId });
   } catch (error) {
     console.error('Error starting dancefloor:', error);
-    res.status(500).json({ error: 'Failed to start dancefloor' });
+    sendErrorResponse(res, 500, 'Failed to start dancefloor.');
   }
 });
 
@@ -45,7 +46,7 @@ router.post('/stop-dancefloor', async (req: Request, res: Response) => {
     res.status(200).json({ message: 'Dancefloor stopped.' });
   } catch (error) {
     console.error('Error stopping dancefloor:', error);
-    res.status(500).json({ error: 'Failed to stop dancefloor' });
+    sendErrorResponse(res, 500, 'Failed to stop dancefloor.');
   }
 });
 
@@ -57,7 +58,7 @@ router.post('/dancefloor/:dancefloorId/message', async (req: Request, res: Respo
 
   // enforce character limit
   if (message.length > 300) {
-    res.status(400).json({ error: 'Message exceeds maximum length of 300 characters.' });
+    sendErrorResponse(res, 400, 'Message exceeds maximum length of 300 characters.');
     return;
   }
 
@@ -73,7 +74,7 @@ router.post('/dancefloor/:dancefloorId/message', async (req: Request, res: Respo
     res.status(200).json({ message: 'Message sent successfully.' });
   } catch (error) {
     console.error('Error saving message:', error);
-    res.status(500).json({ error: 'Failed to send message.' });
+    sendErrorResponse(res, 500, 'Failed to send message.');
   }
 });
 
@@ -87,10 +88,14 @@ router.get('/dancefloor/:dancefloorId/song-requests', async (req: Request, res: 
       [dancefloorId]
     );
 
+    if (result.rows.length === 0) {
+      return res.status(200).json({ message: 'No song requests found.' });
+    }
+
     res.status(200).json(result.rows);
   } catch (error) {
     console.error('Error fetching song requests:', error);
-    res.status(500).json({ error: 'Failed to fetch song requests.' });
+    sendErrorResponse(res, 500, 'Failed to fetch song requests.');
   }
 });
 
@@ -101,10 +106,14 @@ router.get('/dancefloor/:dancefloorId/messages', async (req: Request, res: Respo
   try {
     const result = await pool.query('SELECT * FROM messages WHERE dancefloor_id = $1 ORDER BY created_at ASC', [dancefloorId]);
 
+    if (result.rows.length === 0) {
+      return res.status(200).json({ message: 'No messages found.' });
+    }
+
     res.status(200).json(result.rows);
   } catch (error) {
     console.error('Error fetching messages:', error);
-    res.status(500).json({ error: 'Failed to fetch messages.' });
+    sendErrorResponse(res, 500, 'Failed to fetch messages.');
   }
 });
 
@@ -116,7 +125,7 @@ router.get('/dancefloor/:dancefloorId', async (req: Request, res: Response) => {
     const dancefloorResult = await pool.query('SELECT * FROM dancefloors WHERE id = $1', [dancefloorId]);
     
     if (dancefloorResult.rows.length === 0) {
-      return res.status(404).json({ error: 'Dancefloor not found.' });
+      return sendErrorResponse(res, 404, 'Dancefloor not found.');
     }
     
     const dancefloor = dancefloorResult.rows[0];
@@ -127,21 +136,14 @@ router.get('/dancefloor/:dancefloorId', async (req: Request, res: Response) => {
       pool.query('SELECT * FROM messages WHERE dancefloor_id = $1 ORDER BY created_at ASC', [dancefloorId])
     ]);
 
-    if (songRequestsResult.rows.length === 0) {
-      console.log("No song requests found for this dancefloor.");
-    }
-    if (messagesResult.rows.length === 0) {
-      console.log("No messages found for this dancefloor.");
-    }
-
     res.status(200).json({
       ...dancefloor,
-      songRequests: songRequestsResult.rows,
-      messages: messagesResult.rows,
+      songRequests: songRequestsResult.rows, // will return an empty array if no records exist
+      messages: messagesResult.rows // same here
     });
   } catch (error) {
     console.error('Error fetching dancefloor details:', error);
-    res.status(500).json({ error: 'Failed to fetch dancefloor.' });
+    sendErrorResponse(res, 500, 'Failed to fetch dancefloor.');
   }
 });
 
