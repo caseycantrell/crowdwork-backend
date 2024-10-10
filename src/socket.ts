@@ -45,14 +45,29 @@ export const initializeSocket = (server: any) => {
     });
 
     // handle messages
-    socket.on('sendMessage', (data) => {
+    socket.on('sendMessage', async (data) => {
       const { dancefloorId, message } = data;
-      console.log(`Message from ${socket.id} in dancefloor ${dancefloorId}: ${message}`);
-
-      // emit the message to the dancefloor
-      io.to(dancefloorId).emit('message', message);
+    
+      // check character limit
+      if (message.length > 300) {
+        socket.emit('messageError', { message: 'Message exceeds maximum length of 300 characters.' });
+        return;
+      }
+    
+      try {
+        await pool.query(
+          'INSERT INTO messages (dancefloor_id, message, created_at) VALUES ($1, $2, NOW())',
+          [dancefloorId, message]
+        );
+    
+        // emit the message to all users in the dancefloor
+        io.to(dancefloorId).emit('sendMessage', { dancefloorId, message });
+      } catch (error) {
+        console.error('Error saving message:', error);
+        socket.emit('messageError', { message: 'Failed to send message.' });
+      }
     });
-
+    
     socket.on('disconnect', () => {
       console.log('User disconnected:', socket.id);
     });

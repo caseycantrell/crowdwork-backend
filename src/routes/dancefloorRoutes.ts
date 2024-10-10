@@ -50,34 +50,6 @@ router.post('/stop-dancefloor', async (req: Request, res: Response) => {
   }
 });
 
-// send a message
-router.post('/dancefloor/:dancefloorId/message', async (req: Request, res: Response): Promise<void> => {
-  const { dancefloorId } = req.params;
-  const { message } = req.body;
-  const io = getIo();
-
-  // enforce character limit
-  if (message.length > 300) {
-    sendErrorResponse(res, 400, 'Message exceeds maximum length of 300 characters.');
-    return;
-  }
-
-  try {
-    await pool.query(
-      'INSERT INTO messages (dancefloor_id, message, created_at) VALUES ($1, $2, NOW())',
-      [dancefloorId, message]
-    );
-
-    // emit the message to the dancefloor so that all users can see it
-    io.to(dancefloorId).emit('message', message);
-
-    res.status(200).json({ message: 'Message sent successfully.' });
-  } catch (error) {
-    console.error('Error saving message:', error);
-    sendErrorResponse(res, 500, 'Failed to send message.');
-  }
-});
-
 // fetch all song requests for a dancefloor
 router.get('/dancefloor/:dancefloorId/song-requests', async (req: Request, res: Response) => {
   const { dancefloorId } = req.params;
