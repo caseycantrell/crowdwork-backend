@@ -19,17 +19,22 @@ router.post('/login', async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
   try {
+
+    if (!email || !password) {
+      return sendErrorResponse(res, 400, 'Email and password are both required, silly.');
+    }
+    
     const result = await pool.query('SELECT id, name, email, password FROM djs WHERE email = $1', [email]);
 
     if (result.rows.length === 0) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return sendErrorResponse(res, 401, 'Womp womp. User with this email not found.');
     }
 
     const dj = result.rows[0];
     const isPasswordValid = await bcrypt.compare(password, dj.password);
 
     if (!isPasswordValid) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return sendErrorResponse(res, 401, 'Your password is incorrect, friend.');
     }
 
     // set the session for the DJ
