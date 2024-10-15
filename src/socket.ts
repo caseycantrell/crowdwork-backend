@@ -55,13 +55,15 @@ export const initializeSocket = (server: any) => {
       }
     
       try {
-        await pool.query(
-          'INSERT INTO messages (dancefloor_id, message, created_at) VALUES ($1, $2, NOW())',
+        const result = await pool.query(
+          'INSERT INTO messages (dancefloor_id, message, created_at) VALUES ($1, $2, NOW()) RETURNING *',
           [dancefloorId, message]
         );
     
-        // emit the message to all users in the dancefloor
-        io.to(dancefloorId).emit('sendMessage', { dancefloorId, message });
+        const newMessage = result.rows[0];
+    
+        io.to(dancefloorId).emit('sendMessage', newMessage);
+    
       } catch (error) {
         console.error('Error saving message:', error);
         socket.emit('messageError', { message: 'Failed to send message.' });
