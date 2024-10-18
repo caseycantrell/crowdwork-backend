@@ -47,11 +47,11 @@ export const initializeSocket = (server: any) => {
           'SELECT requests_count FROM dancefloors WHERE id = $1',
           [dancefloorId]
         );
-        const totalRequests = result.rows[0].requests_count;
+        const requestsCount = result.rows[0].requests_count;
     
         // emit the new song request and updated count to all clients
         io.to(dancefloorId).emit('songRequest', { id: requestId, song, votes: 0, status: 'queued' });
-        io.to(dancefloorId).emit('updateTotalRequests', { totalRequests });
+        io.to(dancefloorId).emit('updateRequestsCount', { requestsCount });
       } catch (error) {
         console.error('Error saving song request:', error);
       }

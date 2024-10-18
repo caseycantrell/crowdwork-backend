@@ -83,14 +83,14 @@ export const getDjInfo = async (req: Request, res: Response) => {
 // update DJ info
 export const updateDjInfo = async (req: Request, res: Response) => {
     const { djId } = req.params;
-    const { bio, website, instagramHandle, twitterHandle, venmoHandle, cashappHandle } = req.body;
+    const { bio, name, website, instagramHandle, twitterHandle, venmoHandle, cashappHandle } = req.body;
 
     try {
         const result = await pool.query(
             `UPDATE djs
-            SET bio = $1, website = $2, instagram_handle = $3, twitter_handle = $4, venmo_handle = $5, cashapp_handle = $6
-            WHERE id = $7 RETURNING *`,
-            [bio, website, instagramHandle, twitterHandle, venmoHandle, cashappHandle, djId]
+            SET bio = $1, name = $2, website = $3, instagram_handle = $4, twitter_handle = $5, venmo_handle = $6, cashapp_handle = $7
+            WHERE id = $8 RETURNING *`,
+            [bio, name, website, instagramHandle, twitterHandle, venmoHandle, cashappHandle, djId]
         );
 
         if (result.rowCount === 0) {
