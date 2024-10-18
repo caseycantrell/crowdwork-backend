@@ -33,7 +33,7 @@ export const stopDancefloor = async (req: Request, res: Response) => {
 
     try {
         await pool.query(
-            "UPDATE dancefloors SET status = 'completed', end_time = NOW() WHERE dj_id = $1 AND status = 'active'",
+            "UPDATE dancefloors SET status = 'completed', ended_at = NOW() WHERE dj_id = $1 AND status = 'active'",
             [djId]
         );
 
@@ -44,49 +44,7 @@ export const stopDancefloor = async (req: Request, res: Response) => {
     }
 };
 
-// fetch all song requests for a dancefloor
-export const getSongRequestsForDancefloor = async (req: Request, res: Response) => {
-    const { dancefloorId } = req.params;
-
-    try {
-        const result = await pool.query(
-            'SELECT * FROM song_requests WHERE dancefloor_id = $1 ORDER BY votes DESC, created_at ASC',
-            [dancefloorId]
-        );
-
-        if (result.rows.length === 0) {
-            return res.status(200).json({ message: 'No song requests found.' });
-        }
-
-        res.status(200).json(result.rows);
-    } catch (error) {
-        console.error('Error fetching song requests:', error);
-        sendErrorResponse(res, 500, 'Failed to fetch song requests.');
-    }
-};
-
-// fetch messages for a dancefloor
-export const getMessagesForDancefloor = async (req: Request, res: Response) => {
-    const { dancefloorId } = req.params;
-
-    try {
-        const result = await pool.query(
-            'SELECT * FROM messages WHERE dancefloor_id = $1 ORDER BY created_at ASC',
-            [dancefloorId]
-        );
-
-        if (result.rows.length === 0) {
-            return res.status(200).json({ message: 'No messages found.' });
-        }
-
-        res.status(200).json(result.rows);
-    } catch (error) {
-        console.error('Error fetching messages:', error);
-        sendErrorResponse(res, 500, 'Failed to fetch messages.');
-    }
-};
-
-// fetch dancefloor details
+// fetch dancefloor & DJ info
 export const getDancefloorDetails = async (req: Request, res: Response) => {
     const { dancefloorId } = req.params;
 
@@ -102,7 +60,8 @@ export const getDancefloorDetails = async (req: Request, res: Response) => {
 
         const dancefloor = dancefloorResult.rows[0];
 
-        const [songRequestsResult, messagesResult] = await Promise.all([
+        // fetch song requests, messages, and DJ info in parallel
+        const [songRequestsResult, messagesResult, djResult] = await Promise.all([
             pool.query(
                 'SELECT * FROM song_requests WHERE dancefloor_id = $1 ORDER BY created_at ASC',
                 [dancefloorId]
@@ -110,16 +69,27 @@ export const getDancefloorDetails = async (req: Request, res: Response) => {
             pool.query(
                 'SELECT * FROM messages WHERE dancefloor_id = $1 ORDER BY created_at ASC',
                 [dancefloorId]
+            ),
+            pool.query(
+                'SELECT * FROM djs WHERE id = $1',
+                [dancefloor.dj_id]
             )
         ]);
+
+        if (djResult.rows.length === 0) {
+            return sendErrorResponse(res, 404, 'DJ not found.');
+        }
+
+        const djInfo = djResult.rows[0];
 
         res.status(200).json({
             ...dancefloor,
             songRequests: songRequestsResult.rows,
             messages: messagesResult.rows,
+            dj: djInfo,
         });
     } catch (error) {
         console.error('Error fetching dancefloor details:', error);
-        sendErrorResponse(res, 500, 'Failed to fetch dancefloor.');
+        sendErrorResponse(res, 500, 'Failed to fetch dancefloor details.');
     }
 };

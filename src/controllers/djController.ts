@@ -34,7 +34,7 @@ export const getDjInfo = async (req: Request, res: Response) => {
 
     try {
         const djResult = await pool.query(
-            'SELECT qr_code, name, bio, website, instagram_handle, twitter_handle, venmo_handle, cashapp_handle FROM djs WHERE id = $1',
+            'SELECT qr_code, name, bio, website, instagram_handle, twitter_handle, venmo_handle, cashapp_handle, profile_pic_url FROM djs WHERE id = $1',
             [djId]
         );
 
@@ -51,6 +51,7 @@ export const getDjInfo = async (req: Request, res: Response) => {
             twitter_handle,
             venmo_handle,
             cashapp_handle,
+            profile_pic_url,
         } = djResult.rows[0];
 
         const activeDancefloor = await checkActiveDancefloorForDj(djId);
@@ -71,6 +72,7 @@ export const getDjInfo = async (req: Request, res: Response) => {
             isActive,
             dancefloorId,
             isDjLoggedIn,
+            profilePicUrl: profile_pic_url
         });
     } catch (error) {
         console.error('Error fetching DJ info or active dancefloor:', error);
@@ -81,14 +83,14 @@ export const getDjInfo = async (req: Request, res: Response) => {
 // update DJ info
 export const updateDjInfo = async (req: Request, res: Response) => {
     const { djId } = req.params;
-    const { bio, website, instagramHandle, twitterHandle, venmoHandle, cashappHandle } = req.body;
+    const { bio, name, website, instagramHandle, twitterHandle, venmoHandle, cashappHandle } = req.body;
 
     try {
         const result = await pool.query(
             `UPDATE djs
-            SET bio = $1, website = $2, instagram_handle = $3, twitter_handle = $4, venmo_handle = $5, cashapp_handle = $6
-            WHERE id = $7 RETURNING *`,
-            [bio, website, instagramHandle, twitterHandle, venmoHandle, cashappHandle, djId]
+            SET bio = $1, name = $2, website = $3, instagram_handle = $4, twitter_handle = $5, venmo_handle = $6, cashapp_handle = $7
+            WHERE id = $8 RETURNING *`,
+            [bio, name, website, instagramHandle, twitterHandle, venmoHandle, cashappHandle, djId]
         );
 
         if (result.rowCount === 0) {
@@ -111,7 +113,7 @@ export const getPastDancefloors = async (req: Request, res: Response) => {
 
     try {
         const result = await pool.query(
-            "SELECT * FROM dancefloors WHERE dj_id = $1 AND status = 'completed' ORDER BY end_time DESC",
+            "SELECT * FROM dancefloors WHERE dj_id = $1 AND status = 'completed' ORDER BY ended_at DESC",
             [djId]
         );
 
@@ -121,3 +123,21 @@ export const getPastDancefloors = async (req: Request, res: Response) => {
         sendErrorResponse(res, 500, 'Failed to fetch past dancefloors.');
     }
 };
+
+export const updateProfilePic = async (req: Request, res: Response) => {
+    const { djId } = req.params;
+    // console.log("REQ", req)
+    const { profile_pic_url } = req.body; // Extract the URL from the request body
+  
+    try {
+      await pool.query(
+        'UPDATE djs SET profile_pic_url = $1 WHERE id = $2',
+        [profile_pic_url, djId]
+      );
+  
+      res.status(200).json({ message: 'Profile picture updated successfully.' });
+    } catch (error) {
+      console.error('Error updating profile picture URL:', error);
+      res.status(500).json({ message: 'Failed to update profile picture.', error: error });
+    }
+  };
