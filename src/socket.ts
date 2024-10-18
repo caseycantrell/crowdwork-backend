@@ -36,18 +36,18 @@ export const initializeSocket = (server: any) => {
           [requestId, dancefloorId, socket.id, song, 'queued']
         );
     
-        // increment total_requests in the database
+        // increment requests_count in the database
         await pool.query(
-          'UPDATE dancefloors SET total_requests = total_requests + 1 WHERE id = $1',
+          'UPDATE dancefloors SET requests_count = requests_count + 1 WHERE id = $1',
           [dancefloorId]
         );
     
-        // fetch the updated total_requests value
+        // fetch the updated requests_count value
         const result = await pool.query(
-          'SELECT total_requests FROM dancefloors WHERE id = $1',
+          'SELECT requests_count FROM dancefloors WHERE id = $1',
           [dancefloorId]
         );
-        const totalRequests = result.rows[0].total_requests;
+        const totalRequests = result.rows[0].requests_count;
     
         // emit the new song request and updated count to all clients
         io.to(dancefloorId).emit('songRequest', { id: requestId, song, votes: 0, status: 'queued' });
