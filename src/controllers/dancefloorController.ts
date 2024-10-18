@@ -33,7 +33,7 @@ export const stopDancefloor = async (req: Request, res: Response) => {
 
     try {
         await pool.query(
-            "UPDATE dancefloors SET status = 'completed', end_time = NOW() WHERE dj_id = $1 AND status = 'active'",
+            "UPDATE dancefloors SET status = 'completed', ended_at = NOW() WHERE dj_id = $1 AND status = 'active'",
             [djId]
         );
 

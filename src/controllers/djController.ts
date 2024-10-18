@@ -111,7 +111,7 @@ export const getPastDancefloors = async (req: Request, res: Response) => {
 
     try {
         const result = await pool.query(
-            "SELECT * FROM dancefloors WHERE dj_id = $1 AND status = 'completed' ORDER BY end_time DESC",
+            "SELECT * FROM dancefloors WHERE dj_id = $1 AND status = 'completed' ORDER BY ended_at DESC",
             [djId]
         );
 

@@ -28,17 +28,30 @@ export const initializeSocket = (server: any) => {
     socket.on('songRequest', async (data) => {
       const { dancefloorId, song } = data;
       console.log(`Song request from ${socket.id} in dancefloor ${dancefloorId}: ${song}`);
-
+    
       try {
         const requestId = uuidv4();
         await pool.query(
           'INSERT INTO song_requests (id, dancefloor_id, user_id, song, created_at, status) VALUES ($1, $2, $3, $4, NOW(), $5)',
-          [requestId, dancefloorId, socket.id, song, 'queued'] // set status to 'queued'
+          [requestId, dancefloorId, socket.id, song, 'queued']
         );
-        console.log('Song request saved to the database');
-
-        // emit the song request to the dancefloor
+    
+        // increment total_requests in the database
+        await pool.query(
+          'UPDATE dancefloors SET total_requests = total_requests + 1 WHERE id = $1',
+          [dancefloorId]
+        );
+    
+        // fetch the updated total_requests value
+        const result = await pool.query(
+          'SELECT total_requests FROM dancefloors WHERE id = $1',
+          [dancefloorId]
+        );
+        const totalRequests = result.rows[0].total_requests;
+    
+        // emit the new song request and updated count to all clients
         io.to(dancefloorId).emit('songRequest', { id: requestId, song, votes: 0, status: 'queued' });
+        io.to(dancefloorId).emit('updateTotalRequests', { totalRequests });
       } catch (error) {
         console.error('Error saving song request:', error);
       }
@@ -48,7 +61,6 @@ export const initializeSocket = (server: any) => {
     socket.on('sendMessage', async (data) => {
       const { dancefloorId, message } = data;
     
-      // check character limit
       if (message.length > 300) {
         socket.emit('messageError', { message: 'Message exceeds maximum length of 300 characters.' });
         return;
@@ -62,8 +74,22 @@ export const initializeSocket = (server: any) => {
     
         const newMessage = result.rows[0];
     
-        io.to(dancefloorId).emit('sendMessage', newMessage);
+        // increment messages_count in the db
+        await pool.query(
+          'UPDATE dancefloors SET messages_count = messages_count + 1 WHERE id = $1',
+          [dancefloorId]
+        );
     
+        // fetch the updated messages_count value
+        const countResult = await pool.query(
+          'SELECT messages_count FROM dancefloors WHERE id = $1',
+          [dancefloorId]
+        );
+        const messagesCount = countResult.rows[0].messages_count;
+    
+        // emit the new message and updated count to all clients
+        io.to(dancefloorId).emit('sendMessage', newMessage);
+        io.to(dancefloorId).emit('updateMessagesCount', { messagesCount });
       } catch (error) {
         console.error('Error saving message:', error);
         socket.emit('messageError', { message: 'Failed to send message.' });
