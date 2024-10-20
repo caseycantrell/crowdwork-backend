@@ -29,12 +29,12 @@ export const startDancefloor = async (req: Request, res: Response) => {
 
 // stop a dancefloor
 export const stopDancefloor = async (req: Request, res: Response) => {
-    const { djId } = req.body;
+    const { id } = req.body;
 
     try {
         await pool.query(
             "UPDATE dancefloors SET status = 'completed', ended_at = NOW() WHERE dj_id = $1 AND status = 'active'",
-            [djId]
+            [id]
         );
 
         res.status(200).json({ message: 'Dancefloor stopped.' });

@@ -109,3 +109,11 @@ export const signup = async (req: Request, res: Response) => {
       sendErrorResponse(res, 500, 'Server error during registration.');
   }
 };
+
+export const checkAuth = (req: Request, res: Response) => {
+    if (req.session.dj) {
+        return res.status(200).json({ authenticated: true, dj: req.session.dj });
+    } else {
+        return res.status(200).json({ authenticated: false });
+    }
+};

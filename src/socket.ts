@@ -36,7 +36,7 @@ export const initializeSocket = (server: any) => {
           [requestId, dancefloorId, socket.id, song, 'queued']
         );
     
-        // increment requests_count in the database
+        // increment requests_count
         await pool.query(
           'UPDATE dancefloors SET requests_count = requests_count + 1 WHERE id = $1',
           [dancefloorId]
@@ -74,7 +74,7 @@ export const initializeSocket = (server: any) => {
     
         const newMessage = result.rows[0];
     
-        // increment messages_count in the db
+        // increment messages_count
         await pool.query(
           'UPDATE dancefloors SET messages_count = messages_count + 1 WHERE id = $1',
           [dancefloorId]

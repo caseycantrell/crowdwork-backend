@@ -28,7 +28,7 @@ export const updateSongRequestStatus = async (req: Request, res: Response): Prom
 // update the order of song requests
 export const reorderSongRequests = async (req: Request, res: Response): Promise<void> => {
     const { dancefloorId } = req.params;
-    const { order } = req.body; // Expecting an array of { requestId, newOrder }
+    const { order } = req.body; // expecting an array of { requestId, newOrder }
 
     try {
         for (const { requestId, newOrder } of order) {
