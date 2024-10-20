@@ -3,7 +3,7 @@ import cors from 'cors';
 import session from 'express-session';
 import { connectDB } from './config/db';
 import djRoutes from './routes/djRoutes';
-import sessionRoutes from './routes/sessionRoutes';
+import authRoutes from './routes/authRoutes';
 import dancefloorRoutes from './routes/dancefloorRoutes';
 import songRequestRoutes from './routes/songRequestRoutes';
 import dotenv from 'dotenv'
@@ -41,7 +41,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // routes
 app.use('/api', djRoutes);
-app.use('/api', sessionRoutes);
+app.use('/api', authRoutes);
 app.use('/api', dancefloorRoutes);
 app.use('/api', songRequestRoutes);
 
