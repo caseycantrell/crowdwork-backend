@@ -112,8 +112,8 @@ export const signup = async (req: Request, res: Response) => {
 
 export const checkAuth = (req: Request, res: Response) => {
     if (req.session.dj) {
-        return res.status(200).json({ loggedIn: true, dj: req.session.dj });
+        return res.status(200).json({ authenticated: true, dj: req.session.dj });
     } else {
-        return res.status(200).json({ loggedIn: false });
+        return res.status(200).json({ authenticated: false });
     }
 };
