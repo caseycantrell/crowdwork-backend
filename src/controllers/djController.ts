@@ -126,8 +126,7 @@ export const getPastDancefloors = async (req: Request, res: Response) => {
 
 export const updateProfilePic = async (req: Request, res: Response) => {
     const { djId } = req.params;
-    // console.log("REQ", req)
-    const { profile_pic_url } = req.body; // Extract the URL from the request body
+    const { profile_pic_url } = req.body;
   
     try {
       await pool.query(

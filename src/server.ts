@@ -1,8 +1,7 @@
 import http from 'http';
 import dotenv from 'dotenv';
-import { pool } from './config/db';
 import { initializeSocket } from './socket';
-import app from './app';  // Import Express app from app.ts
+import app from './app';
 
 // load env vars
 dotenv.config();
@@ -14,7 +13,7 @@ if (!process.env.DB_USER || !process.env.DB_HOST || !process.env.DB_NAME || !pro
 
 const PORT = process.env.PORT || 3002;
 
-// Create HTTP server
+// create HTTP server
 const server = http.createServer(app);
 
 // initialize socket.io
