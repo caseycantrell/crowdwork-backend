@@ -45,26 +45,26 @@ export const reorderSongRequests = async (req: Request, res: Response): Promise<
     }
 };
 
- // vote for a song request
-export const voteForSongRequest = async (req: Request, res: Response): Promise<void> => {
+ // like a song request
+export const likeSongRequest = async (req: Request, res: Response): Promise<void> => {
     const { requestId } = req.params;
 
     try {
         await pool.query(
-            'UPDATE song_requests SET votes = votes + 1 WHERE id = $1',
+            'UPDATE song_requests SET likes = likes + 1 WHERE id = $1',
             [requestId]
         );
 
         const result = await pool.query(
-            'SELECT votes FROM song_requests WHERE id = $1',
+            'SELECT likes FROM song_requests WHERE id = $1',
             [requestId]
         );
-        const updatedVotes = result.rows[0].votes;
+        const updatedLikes = result.rows[0].likes;
 
-        res.status(200).json({ message: 'Vote added successfully.', votes: updatedVotes });
+        res.status(200).json({ message: 'Like added successfully.', likes: updatedLikes });
     } catch (error) {
-        console.error('Error processing vote:', error);
-        sendErrorResponse(res, 500, 'Failed to add vote.');
+        console.error('Error processing like:', error);
+        sendErrorResponse(res, 500, 'Failed to like song request.');
     }
 };
 
