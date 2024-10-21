@@ -5,6 +5,7 @@ import { getIo } from '../socket';
 
 // update the status of a song request
 export const updateSongRequestStatus = async (req: Request, res: Response): Promise<void> => {
+    const io = getIo();
     const { requestId } = req.params;
     const { status } = req.body;
 
@@ -13,16 +14,61 @@ export const updateSongRequestStatus = async (req: Request, res: Response): Prom
         return;
     }
 
+    const client = await pool.connect();
+
     try {
-        await pool.query(
+        await client.query('BEGIN');
+
+        let dancefloorId: string;
+
+        const result = await client.query(
+            'SELECT dancefloor_id FROM song_requests WHERE id = $1',
+            [requestId]
+        );
+
+        if (result.rows.length === 0) {
+            sendErrorResponse(res, 404, 'Song request not found.');
+            await client.query('ROLLBACK'); // rollback on failure
+            return;
+        };
+
+        dancefloorId = result.rows[0].dancefloor_id;
+
+        // if the new status is "playing", update the currently playing song to "queued"
+        if (status === 'playing') {
+            const currentlyPlaying = await client.query(
+                'SELECT id FROM song_requests WHERE status = $1 AND dancefloor_id = $2 FOR UPDATE',
+                ['playing', dancefloorId]
+            );
+
+            if (currentlyPlaying.rows.length > 0) {
+                const playingSongId = currentlyPlaying.rows[0].id;
+                await client.query(
+                    'UPDATE song_requests SET status = $1 WHERE id = $2',
+                    ['queued', playingSongId]
+                );
+            };
+        };
+
+        // update the status of the requested song
+        await client.query(
             'UPDATE song_requests SET status = $1 WHERE id = $2',
             [status, requestId]
         );
-        res.status(200).json({ message: 'Song request status updated.' });
+
+        await client.query('COMMIT');
+
+        // emit the status update to the relevant dancefloor room after commit
+        io.to(dancefloorId).emit('statusUpdate', { requestId, status });
+
+        res.status(200).json({ message: `Song request marked as ${status}.` });
     } catch (error) {
-        console.error('Error updating song request status:', error);
-        sendErrorResponse(res, 500, 'Failed to update song request status.');
-    }
+        await client.query('ROLLBACK');
+        console.error(`Error updating song status to ${status}:`, error);
+        sendErrorResponse(res, 500, 'Failed to update song status.');
+    } finally {
+        client.release();
+    };
 };
 
 // update the order of song requests
@@ -36,13 +82,13 @@ export const reorderSongRequests = async (req: Request, res: Response): Promise<
                 'UPDATE song_requests SET "order" = $1 WHERE id = $2 AND dancefloor_id = $3',
                 [newOrder, requestId, dancefloorId]
             );
-        }
+        };
 
         res.status(200).json({ message: 'Song requests reordered successfully.' });
     } catch (error) {
         console.error('Error reordering song requests:', error);
         sendErrorResponse(res, 500, 'Failed to reorder song requests.');
-    }
+    };
 };
 
  // like a song request
@@ -65,76 +111,5 @@ export const likeSongRequest = async (req: Request, res: Response): Promise<void
     } catch (error) {
         console.error('Error processing like:', error);
         sendErrorResponse(res, 500, 'Failed to like song request.');
-    }
-};
-
-// start playing a song
-export const playSongRequest = async (req: Request, res: Response): Promise<void> => {
-    const io = getIo();
-    const { requestId } = req.params;
-
-    try {
-        const dancefloorResult = await pool.query(
-            'SELECT dancefloor_id FROM song_requests WHERE id = $1',
-            [requestId]
-        );
-
-        if (dancefloorResult.rows.length === 0) {
-            sendErrorResponse(res, 404, 'Song request not found.');
-            return;
-        }
-
-        const dancefloorId = dancefloorResult.rows[0].dancefloor_id;
-
-        const currentlyPlaying = await pool.query(
-            'SELECT id FROM song_requests WHERE status = $1 AND dancefloor_id = $2 FOR UPDATE',
-            ['playing', dancefloorId]
-        );
-
-        if (currentlyPlaying.rows.length > 0) {
-            const playingSongId = currentlyPlaying.rows[0].id;
-            await pool.query('UPDATE song_requests SET status = $1 WHERE id = $2', ['queued', playingSongId]);
-        }
-
-        await pool.query('UPDATE song_requests SET status = $1 WHERE id = $2', ['playing', requestId]);
-
-        io.to(dancefloorId).emit('statusUpdate', { requestId, status: 'playing' });
-
-        res.status(200).json({ message: 'Song is now playing.' });
-    } catch (error) {
-        console.error('Error updating song status to playing:', error);
-        sendErrorResponse(res, 500, 'Failed to update song status.');
-    }
-};
-
-// mark a song as completed
-export const completeSongRequest = async (req: Request, res: Response): Promise<void> => {
-    const { requestId } = req.params;
-
-    try {
-        await pool.query(
-            'UPDATE song_requests SET status = $1 WHERE id = $2',
-            ['completed', requestId]
-        );
-        res.status(200).json({ message: 'Song has been marked as completed.' });
-    } catch (error) {
-        console.error('Error updating song status to completed:', error);
-        sendErrorResponse(res, 500, 'Failed to update song status.');
-    }
-};
-
-// decline a song request
-export const declineSongRequest = async (req: Request, res: Response): Promise<void> => {
-    const { requestId } = req.params;
-
-    try {
-        await pool.query(
-            'UPDATE song_requests SET status = $1 WHERE id = $2',
-            ['declined', requestId]
-        );
-        res.status(200).json({ message: 'Song request declined successfully.' });
-    } catch (error) {
-        console.error('Error declining song request:', error);
-        sendErrorResponse(res, 500, 'Failed to decline song request.');
-    }
+    };
 };
