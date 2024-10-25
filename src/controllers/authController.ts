@@ -93,7 +93,16 @@ export const signup = async (req: Request, res: Response) => {
 
       const djUrl = `${process.env.FRONTEND_URL}/dj/${newDjId}?redirect=dancefloor`;
 
-      const qrCodeData = await QRCode.toDataURL(djUrl);
+      const qrCodeData = await QRCode.toDataURL(djUrl, {
+        errorCorrectionLevel: 'H',
+        type: 'image/png',
+        width: 300,
+        margin: 3,
+        color: {
+            dark: '#ffffff', // white foreground
+            light: '#000000' // black background
+        }
+      });
 
       await pool.query('UPDATE djs SET qr_code = $1 WHERE id = $2', [qrCodeData, newDjId]);
 
