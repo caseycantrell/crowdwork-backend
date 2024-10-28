@@ -1,3 +1,4 @@
+import { Request } from 'express';
 import 'express-session';
 
 declare module 'express-session' {
@@ -8,6 +9,6 @@ declare module 'express-session' {
 
 declare module 'express' {
   interface Request {
-    session: SessionData;
+    session: Session & Partial<SessionData>;
   }
 }
