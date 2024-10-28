@@ -15,13 +15,27 @@ const app = express();
 
 connectDB();
 
-// enable CORS
-app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3002'],
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-}));
+const allowedOrigin = process.env.CORS_ORIGIN;
+
+if (!allowedOrigin) {
+  throw new Error('CORS_ORIGIN environment variable is not set.');
+}
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || origin === allowedOrigin) {
+        callback(null, true);
+      } else {
+        // Block any other origin
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true, // allow cookies and creds
+  })
+);
 
 // session middleware
 app.use(session({

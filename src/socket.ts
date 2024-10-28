@@ -5,9 +5,15 @@ import { v4 as uuidv4 } from 'uuid';
 let io: Server;
 
 export const initializeSocket = (server: any) => {
+  const allowedOrigin = process.env.CORS_ORIGIN;
+
+  if (!allowedOrigin) {
+    throw new Error('CORS_ORIGIN environment variable is not set.');
+  }
+  
   io = new Server(server, {
     cors: {
-      origin: 'http://localhost:3000',
+      origin: allowedOrigin,
       methods: ['GET', 'POST'],
       allowedHeaders: ['Content-Type'],
       credentials: true,
