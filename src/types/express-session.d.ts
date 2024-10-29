@@ -5,3 +5,9 @@ declare module 'express-session' {
     dj: { id: string; name: string; email: string };
   }
 }
+
+declare module 'express' {
+  interface Request {
+    session?: SessionData;
+  }
+}

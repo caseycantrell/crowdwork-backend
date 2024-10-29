@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
+import 'express-session';
 import { connectDB } from './config/db';
 import djRoutes from './routes/djRoutes';
 import authRoutes from './routes/authRoutes';
