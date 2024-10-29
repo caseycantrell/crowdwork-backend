@@ -1,7 +1,13 @@
 import 'express-session';
 
+interface DJData {
+  id: string;
+  name: string;
+  email: string;
+}
+
 declare module 'express-session' {
-  interface SessionData {
-    dj: { id: string; name: string; email: string };
+  interface Session {
+    dj?: DJData; 
   }
 }

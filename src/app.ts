@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
+import 'express-session';
 import { connectDB } from './config/db';
 import djRoutes from './routes/djRoutes';
 import authRoutes from './routes/authRoutes';
@@ -27,8 +28,8 @@ app.use(
       if (!origin || origin === allowedOrigin) {
         callback(null, true);
       } else {
-        // Block any other origin
-        callback(new Error('Not allowed by CORS'));
+        // block any other origin
+        callback(new Error('Not allowed by CORS.'));
       }
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
