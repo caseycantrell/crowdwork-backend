@@ -34,7 +34,9 @@ export const login = async (req: Request, res: Response) => {
             return sendErrorResponse(res, 401, 'Your password is incorrect, friend.');
         }
 
-        req.session.dj = { id: String(dj.id), name: dj.name, email: dj.email };
+        if (req.session) {
+            req.session.dj = { id: String(dj.id), name: dj.name, email: dj.email };
+        }
 
         res.status(200).json({
             message: 'Logged in successfully',
@@ -47,7 +49,7 @@ export const login = async (req: Request, res: Response) => {
 };
 
 export const logout = (req: Request, res: Response) => {
-  req.session.destroy((err) => {
+  req.session?.destroy((err) => {
       if (err) {
           console.error('Error destroying session:', err);
           return sendErrorResponse(res, 500, 'Failed to log out.');
@@ -106,7 +108,9 @@ export const signup = async (req: Request, res: Response) => {
 
       await pool.query('UPDATE djs SET qr_code = $1 WHERE id = $2', [qrCodeData, newDjId]);
 
-      req.session.dj = { id: newDjId, name, email };
+      if (req.session) {  // Check if session exists
+        req.session.dj = { id: newDjId, name, email };
+      }
 
       res.status(201).json({
           message: 'DJ registered and logged in successfully.',
@@ -120,7 +124,7 @@ export const signup = async (req: Request, res: Response) => {
 };
 
 export const checkAuth = (req: Request, res: Response) => {
-    if (req.session.dj) {
+    if (req.session?.dj) {
         return res.status(200).json({ authenticated: true, dj: req.session.dj });
     } else {
         return res.status(200).json({ authenticated: false });
