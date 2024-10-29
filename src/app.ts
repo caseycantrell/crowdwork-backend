@@ -28,8 +28,8 @@ app.use(
       if (!origin || origin === allowedOrigin) {
         callback(null, true);
       } else {
-        // Block any other origin
-        callback(new Error('Not allowed by CORS'));
+        // block any other origin
+        callback(new Error('Not allowed by CORS.'));
       }
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE'],

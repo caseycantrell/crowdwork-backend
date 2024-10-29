@@ -108,7 +108,7 @@ export const signup = async (req: Request, res: Response) => {
 
       await pool.query('UPDATE djs SET qr_code = $1 WHERE id = $2', [qrCodeData, newDjId]);
 
-      if (req.session) {  // Check if session exists
+      if (req.session) {
         req.session.dj = { id: newDjId, name, email };
       }
 

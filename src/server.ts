@@ -3,25 +3,23 @@ import dotenv from 'dotenv';
 import { initializeSocket } from './socket';
 import app from './app';
 
-// Load environment variables
+// load env vars
 dotenv.config();
 
-console.log('Backend URL:', process.env.BACKEND_URL);
-
-// Validate that DATABASE_URL is set
+// validate DATABASE_URL
 if (!process.env.DATABASE_URL) {
-  throw new Error('DATABASE_URL is not set correctly');
+  console.log('DATABASE_URL is not set, running in development mode.');
 }
 
 const PORT = process.env.PORT || 3002;
 
-// Create HTTP server
+// create HTTP server
 const server = http.createServer(app);
 
-// Initialize socket.io
+// initialize socket.io
 initializeSocket(server);
 
-// Start the server
+// start the server
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 }).on('error', (err: Error) => {
@@ -30,14 +28,14 @@ server.listen(PORT, () => {
   console.log('Server connection closed.');
 });
 
-// Handle unhandled rejections and uncaught exceptions
+// handle unhandled rejections and uncaught exceptions
 process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
 process.on('uncaughtException', (error: Error) => {
   console.error('Uncaught Exception:', error.message);
-  console.error('Error Stack:', error.stack);
+  console.error('Error stack:', error.stack);
 });
 
 process.on('exit', (code) => {
