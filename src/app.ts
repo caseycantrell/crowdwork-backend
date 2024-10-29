@@ -22,21 +22,26 @@ if (!allowedOrigin) {
   throw new Error('CORS_ORIGIN environment variable is not set.');
 }
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      if (!origin || origin === allowedOrigin) {
-        callback(null, true);
-      } else {
-        // block any other origin
-        callback(new Error('Not allowed by CORS.'));
-      }
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true, // allow cookies and creds
-  })
-);
+// CORS middleware
+const corsOptions = {
+  origin: (origin: any, callback: any) => {
+    if (!origin || origin === allowedOrigin) {
+      callback(null, true);
+    } else {
+      // block any other origin
+      callback(new Error('Not allowed by CORS.'));
+    }
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true, // allow cookies and creds
+};
+
+// Apply CORS globally
+app.use(cors(corsOptions));
+
+// allow all OPTIONS requests for CORS preflight
+app.options('*', cors(corsOptions));
 
 // session middleware
 app.use(session({
@@ -53,9 +58,6 @@ app.use(session({
 // middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// allow all OPTIONS requests for CORS preflight
-app.options('*', cors());
 
 // routes
 app.use('/api', djRoutes);
