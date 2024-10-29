@@ -1,43 +1,38 @@
 import dotenv from 'dotenv';
 import { Pool } from 'pg';
 
-// load environment variables from .env
+// Load environment variables
 dotenv.config();
 
-// determine the connection string based on the environment
-const connectionString = process.env.DATABASE_URL || '';
+// Log DATABASE_URL to verify it's being read correctly
+console.log('DATABASE_URL:', process.env.DATABASE_URL);
 
-const pool = new Pool(
-  process.env.DATABASE_URL
-    ? {
-        connectionString,
-        ssl: { rejectUnauthorized: false }, // required for Heroku Postgres
-      }
-    : {
-        user: process.env.DB_USER,
-        host: process.env.DB_HOST,
-        database: process.env.DB_NAME,
-        password: process.env.DB_PASSWORD,
-        port: parseInt(process.env.DB_PORT as string, 10),
-      }
-);
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  console.error('DATABASE_URL is not set');
+  throw new Error('DB env variables are not set correctly');
+}
+
+export const pool = new Pool({
+  connectionString,
+  ssl: { rejectUnauthorized: false },  // Required for Heroku Postgres
+});
 
 pool.on('connect', () => {
   console.log('New jabroni connected to Postgres');
 });
 
 pool.on('error', (err: Error) => {
-  console.error('Oh goodness, an unexpected error on idle Postgres client', err);
+  console.error('Unexpected error on idle Postgres client', err);
 });
 
 export const connectDB = async () => {
   try {
     await pool.query('SELECT NOW()');
-    console.log('Postgres connected successfully, which is tight.');
+    console.log('Postgres connected successfully.');
   } catch (error) {
-    console.error('Oh lawd the Postgres connection failed:', error);
-    process.exit(1); 
+    console.error('Failed to connect to Postgres:', error);
+    process.exit(1);
   }
 };
-
-export { pool };
