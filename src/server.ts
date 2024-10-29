@@ -6,6 +6,8 @@ import app from './app';
 // load env vars
 dotenv.config();
 
+console.log('Backend URL:', process.env.BACKEND_URL);
+
 // validate required env vars
 if (!process.env.DB_USER || !process.env.DB_HOST || !process.env.DB_NAME || !process.env.DB_PASSWORD || !process.env.DB_PORT) {
   throw new Error('DB env variables are not set correctly');
