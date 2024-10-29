@@ -54,6 +54,9 @@ app.use(session({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// allow all OPTIONS requests for CORS preflight
+app.options('*', cors());
+
 // routes
 app.use('/api', djRoutes);
 app.use('/api', authRoutes);
