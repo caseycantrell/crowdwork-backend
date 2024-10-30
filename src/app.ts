@@ -14,6 +14,9 @@ dotenv.config();
 
 const app = express();
 
+ // trust the first proxy (Heroku)
+app.set('trust proxy', 1);
+
 connectDB();
 
 const allowedOrigin = process.env.CORS_ORIGIN;
@@ -52,6 +55,7 @@ app.use(session({
     maxAge: 1000 * 60 * 60 * 24, // 1 day expiration
     secure: process.env.NODE_ENV === 'production', // use secure cookies in production
     httpOnly: true, // prevents client-side javascript from accessing the cookie
+    sameSite: 'none'
   }
 }));
 
