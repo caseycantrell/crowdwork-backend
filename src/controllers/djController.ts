@@ -58,8 +58,6 @@ export const getDjInfo = async (req: Request, res: Response) => {
         const isActive = !!activeDancefloor;
         const dancefloorId = activeDancefloor ? activeDancefloor.id : null;
 
-        const isDjLoggedIn = req.session?.dj && String(req.session.dj.id) === djId;
-
         res.status(200).json({
             qrCode,
             name,
@@ -71,7 +69,6 @@ export const getDjInfo = async (req: Request, res: Response) => {
             cashappHandle: cashapp_handle,
             isActive,
             dancefloorId,
-            isDjLoggedIn,
             profilePicUrl: profile_pic_url
         });
     } catch (error) {
