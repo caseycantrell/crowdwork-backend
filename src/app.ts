@@ -19,16 +19,14 @@ app.set('trust proxy', 1);
 
 connectDB();
 
-const allowedOrigin = process.env.CORS_ORIGIN;
-
-if (!allowedOrigin) {
+if (!process.env.CORS_ORIGIN) {
   throw new Error('CORS_ORIGIN environment variable is not set.');
 }
 
 // CORS middleware
 const corsOptions = {
   origin: (origin: any, callback: any) => {
-    if (!origin || origin === allowedOrigin) {
+    if (!origin || origin === process.env.CORS_ORIGIN) {
       callback(null, true);
     } else {
       // block any other origin
@@ -40,7 +38,7 @@ const corsOptions = {
   credentials: true, // allow cookies and creds
 };
 
-// Apply CORS globally
+// apply CORS globally
 app.use(cors(corsOptions));
 
 // allow all OPTIONS requests for CORS preflight
@@ -54,7 +52,7 @@ app.use(session({
   cookie: {
     maxAge: 1000 * 60 * 60 * 24, // 1 day expiration
     secure: process.env.NODE_ENV === 'production', // use secure cookies in production
-    httpOnly: true, // prevents client-side javascript from accessing the cookie
+    httpOnly: true, // prevents client-side js from accessing the cookie
     sameSite: 'none'
   }
 }));
