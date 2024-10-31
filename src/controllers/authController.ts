@@ -39,7 +39,7 @@ export const login = async (req: Request, res: Response) => {
         }
 
         res.status(200).json({
-            message: 'Logged in successfully',
+            message: 'Logged in successfully.',
             dj: { id: dj.id, name: dj.name, email: dj.email },
         });
     } catch (error) {
@@ -121,12 +121,4 @@ export const signup = async (req: Request, res: Response) => {
       console.error('Error registering DJ:', error);
       sendErrorResponse(res, 500, 'Server error during registration.');
   }
-};
-
-export const checkAuth = (req: Request, res: Response) => {
-    if (req.session?.dj) {
-        return res.status(200).json({ authenticated: true, dj: req.session.dj });
-    } else {
-        return res.status(200).json({ authenticated: false });
-    }
 };
