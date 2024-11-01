@@ -15,49 +15,37 @@ const isPasswordStrong = (password: string) => {
 
 export const login = async (req: Request, res: Response) => {
     const { email, password } = req.body;
-
+  
     try {
-        if (!email || !password) {
-            return sendErrorResponse(res, 400, 'Email and password are both required, silly.');
-        }
-
-        const result = await pool.query('SELECT id, name, email, password FROM djs WHERE email = $1', [email]);
-
-        if (result.rows.length === 0) {
-            return sendErrorResponse(res, 401, 'Womp womp. User with this email not found.');
-        }
-
-        const dj = result.rows[0];
-        const isPasswordValid = await bcrypt.compare(password, dj.password);
-
-        if (!isPasswordValid) {
-            return sendErrorResponse(res, 401, 'Your password is incorrect, friend.');
-        }
-
-        if (req.session) {
-            req.session.dj = { id: String(dj.id), name: dj.name, email: dj.email };
-        }
-
-        res.status(200).json({
-            message: 'Logged in successfully',
-            dj: { id: dj.id, name: dj.name, email: dj.email },
-        });
+      if (!email || !password) {
+        return sendErrorResponse(res, 400, "Email and password are both required.");
+      }
+  
+      const result = await pool.query("SELECT id, name, email, password FROM djs WHERE email = $1", [email]);
+  
+      if (result.rows.length === 0) {
+        return sendErrorResponse(res, 401, "User with this email not found.");
+      }
+  
+      const dj = result.rows[0];
+      const isPasswordValid = await bcrypt.compare(password, dj.password);
+  
+      if (!isPasswordValid) {
+        return sendErrorResponse(res, 401, "Incorrect password.");
+      }
+  
+      // return only user data (NextAuth handles JWT creation)
+      res.status(200).json({
+        id: dj.id,
+        name: dj.name,
+        email: dj.email,
+      });
     } catch (error) {
-        console.error('Error during login:', error);
-        sendErrorResponse(res, 500, 'Internal server error.');
+      console.error("Error during login:", error);
+      sendErrorResponse(res, 500, "Internal server error.");
     }
 };
-
-export const logout = (req: Request, res: Response) => {
-  req.session?.destroy((err) => {
-      if (err) {
-          console.error('Error destroying session:', err);
-          return sendErrorResponse(res, 500, 'Failed to log out.');
-      }
-      res.clearCookie('connect.sid');
-      res.status(200).json({ message: 'Logged out successfully.' });
-  });
-};
+  
 
 export const signup = async (req: Request, res: Response) => {
   const { email, name, password } = req.body;
@@ -107,26 +95,18 @@ export const signup = async (req: Request, res: Response) => {
       });
 
       await pool.query('UPDATE djs SET qr_code = $1 WHERE id = $2', [qrCodeData, newDjId]);
-
-      if (req.session) {
-        req.session.dj = { id: newDjId, name, email };
-      }
-
+      
       res.status(201).json({
-          message: 'DJ registered and logged in successfully.',
-          djId: newDjId,
-          qrCode: qrCodeData,
+        message: "DJ registered successfully.",
+        dj: {
+          id: newDjId,
+          name,
+          email,
+        },
+        qrCode: qrCodeData,
       });
   } catch (error) {
       console.error('Error registering DJ:', error);
       sendErrorResponse(res, 500, 'Server error during registration.');
   }
-};
-
-export const checkAuth = (req: Request, res: Response) => {
-    if (req.session?.dj) {
-        return res.status(200).json({ authenticated: true, dj: req.session.dj });
-    } else {
-        return res.status(200).json({ authenticated: false });
-    }
 };
