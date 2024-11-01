@@ -140,6 +140,39 @@ export const initializeSocket = (server: any) => {
       }
     });
 
+    // handle liking a song request
+    socket.on('likeSongRequest', async (data) => {
+      const { requestId, dancefloorId } = data;
+
+      if (!requestId || !dancefloorId) {
+        console.error('Missing requestId or dancefloorId');
+        return;
+      }
+
+      try {
+        // increment likes count
+        await pool.query(
+          'UPDATE song_requests SET likes = likes + 1 WHERE id = $1',
+          [requestId]
+        );
+
+        // fetch updated likes count
+        const result = await pool.query(
+          'SELECT likes FROM song_requests WHERE id = $1',
+          [requestId]
+        );
+        const updatedLikes = result.rows[0].likes;
+
+        // emit updated likes to all users in the dancefloor
+        io.to(dancefloorId).emit('likeSongRequest', { requestId, likes: updatedLikes });
+        console.log(`Song request ${requestId} liked. Total likes: ${updatedLikes}`);
+      } catch (error) {
+        console.error('Error processing like:', error);
+        socket.emit('likeError', { message: 'Failed to like song request.' });
+      }
+    });
+
+    
     socket.on('disconnect', () => {
       console.log(`User disconnected: ${socket.id}`);
     });

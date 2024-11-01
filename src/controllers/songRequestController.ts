@@ -64,7 +64,7 @@ export const updateSongRequestStatus = async (req: Request, res: Response): Prom
         res.status(200).json({ message: `Song request marked as ${status}.` });
     } catch (error) {
         await client.query('ROLLBACK');
-        console.error(`Error updating song status to ${status}:`, error);
+    console.error(`Error updating song status to ${status}:`, error);
         sendErrorResponse(res, 500, 'Failed to update song status.');
     } finally {
         client.release();
@@ -88,28 +88,5 @@ export const reorderSongRequests = async (req: Request, res: Response): Promise<
     } catch (error) {
         console.error('Error reordering song requests:', error);
         sendErrorResponse(res, 500, 'Failed to reorder song requests.');
-    };
-};
-
- // like a song request
-export const likeSongRequest = async (req: Request, res: Response): Promise<void> => {
-    const { requestId } = req.params;
-
-    try {
-        await pool.query(
-            'UPDATE song_requests SET likes = likes + 1 WHERE id = $1',
-            [requestId]
-        );
-
-        const result = await pool.query(
-            'SELECT likes FROM song_requests WHERE id = $1',
-            [requestId]
-        );
-        const updatedLikes = result.rows[0].likes;
-
-        res.status(200).json({ message: 'Like added successfully.', likes: updatedLikes });
-    } catch (error) {
-        console.error('Error processing like:', error);
-        sendErrorResponse(res, 500, 'Failed to like song request.');
     };
 };
