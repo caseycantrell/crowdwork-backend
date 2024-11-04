@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { pool } from '../config/db';
+import bcrypt from 'bcrypt';
 import { sendErrorResponse } from '../utils/helpers';
 
 // function to check the active dancefloor for a DJ
@@ -136,4 +137,31 @@ export const updateProfilePic = async (req: Request, res: Response) => {
       console.error('Error updating profile picture URL:', error);
       res.status(500).json({ message: 'Failed to update profile picture.', error: error });
     }
-  };
+};
+
+// deleting account
+export const deleteAccount = async (req: Request, res: Response) => {
+    const { djId } = req.params;
+    const { email, password } = req.body;
+
+    try {
+        const result = await pool.query('SELECT * FROM djs WHERE id = $1 AND email = $2', [djId, email]);
+        if (result.rows.length === 0) {
+            return sendErrorResponse(res, 404, 'Account not found or email does not match.');
+        }
+
+        const dj = result.rows[0];
+        const isPasswordValid = await bcrypt.compare(password, dj.password);
+
+        if (!isPasswordValid) {
+            return sendErrorResponse(res, 401, 'Incorrect password.');
+        }
+
+        await pool.query('DELETE FROM djs WHERE id = $1', [djId]);
+
+        res.status(200).json({ message: 'Account deleted successfully.' });
+    } catch (error) {
+        console.error('Error deleting account:', error);
+        sendErrorResponse(res, 500, 'Error deleting account.');
+    }
+};
