@@ -93,3 +93,26 @@ export const getDancefloorDetails = async (req: Request, res: Response) => {
         sendErrorResponse(res, 500, 'Failed to fetch dancefloor details.');
     }
 };
+
+// reactivate a past dancefloor
+export const reactivateDancefloor = async (req: Request, res: Response) => {
+    const { dancefloorId } = req.params;
+
+    try {
+        // set any currently active dancefloor status to "completed"
+        await pool.query(
+            "UPDATE dancefloors SET status = 'completed', ended_at = NOW() WHERE status = 'active'"
+        );
+
+        // reactivate the selected past dancefloor
+        await pool.query(
+            "UPDATE dancefloors SET status = 'active', ended_at = NULL WHERE id = $1",
+            [dancefloorId]
+        );
+
+        res.status(200).json({ message: 'Dancefloor reactivated successfully.' });
+    } catch (error) {
+        console.error('Error reactivating dancefloor:', error);
+        sendErrorResponse(res, 500, 'Failed to reactivate dancefloor.');
+    }
+};
