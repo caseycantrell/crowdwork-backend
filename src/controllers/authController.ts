@@ -86,7 +86,7 @@ export const signup = async (req: Request, res: Response) => {
       const qrCodeData = await QRCode.toDataURL(djUrl, {
         errorCorrectionLevel: 'H',
         type: 'image/png',
-        width: 300,
+        width: 1000,
         margin: 3,
         color: {
             dark: '#ffffff', // white foreground
