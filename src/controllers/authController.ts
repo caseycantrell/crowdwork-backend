@@ -18,20 +18,20 @@ export const login = async (req: Request, res: Response) => {
   
     try {
       if (!email || !password) {
-        return sendErrorResponse(res, 400, "Womp womp. Email and password are both required.");
+        return sendErrorResponse(res, 400, "Email and password are both required.");
       }
   
       const result = await pool.query("SELECT id, name, email, password FROM djs WHERE email = $1", [email]);
   
       if (result.rows.length === 0) {
-        return sendErrorResponse(res, 401, "Womp womp. User with this email not found.");
+        return sendErrorResponse(res, 401, "User with this email not found.");
       }
   
       const dj = result.rows[0];
       const isPasswordValid = await bcrypt.compare(password, dj.password);
   
       if (!isPasswordValid) {
-        return sendErrorResponse(res, 401, "Womp womp. Your password is incorrect.");
+        return sendErrorResponse(res, 401, "Your password is incorrect.");
       }
   
       // return only user data (NextAuth handles JWT creation)
@@ -86,7 +86,7 @@ export const signup = async (req: Request, res: Response) => {
       const qrCodeData = await QRCode.toDataURL(djUrl, {
         errorCorrectionLevel: 'H',
         type: 'image/png',
-        width: 300,
+        width: 1000,
         margin: 3,
         color: {
             dark: '#ffffff', // white foreground
