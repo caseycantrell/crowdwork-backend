@@ -157,10 +157,30 @@ export const deleteAccount = async (req: Request, res: Response) => {
             return sendErrorResponse(res, 401, 'Incorrect password.');
         }
 
+        await pool.query('BEGIN');
+
+        // delete related song requests and messages for each dancefloor
+        await pool.query(`
+            DELETE FROM song_requests
+            WHERE dancefloor_id IN (SELECT id FROM dancefloors WHERE dj_id = $1)
+        `, [djId]);
+
+        await pool.query(`
+            DELETE FROM messages
+            WHERE dancefloor_id IN (SELECT id FROM dancefloors WHERE dj_id = $1)
+        `, [djId]);
+
+        // delete dancefloors
+        await pool.query('DELETE FROM dancefloors WHERE dj_id = $1', [djId]);
+
+        // delete the user account
         await pool.query('DELETE FROM djs WHERE id = $1', [djId]);
+
+        await pool.query('COMMIT');
 
         res.status(200).json({ message: 'Account deleted successfully.' });
     } catch (error) {
+        await pool.query('ROLLBACK');
         console.error('Error deleting account:', error);
         sendErrorResponse(res, 500, 'Error deleting account.');
     }

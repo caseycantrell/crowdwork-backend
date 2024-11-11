@@ -116,3 +116,38 @@ export const reactivateDancefloor = async (req: Request, res: Response) => {
         sendErrorResponse(res, 500, 'Failed to reactivate dancefloor.');
     }
 };
+
+// delete a dancefloor
+export const deleteDancefloor = async (req: Request, res: Response) => {
+    const { dancefloorId } = req.params;
+
+    try {
+        await pool.query('BEGIN');
+
+        // delete associated song requests
+        await pool.query(
+            'DELETE FROM song_requests WHERE dancefloor_id = $1',
+            [dancefloorId]
+        );
+
+        // delete associated messages
+        await pool.query(
+            'DELETE FROM messages WHERE dancefloor_id = $1',
+            [dancefloorId]
+        );
+
+        // delete the dancefloor
+        await pool.query(
+            'DELETE FROM dancefloors WHERE id = $1',
+            [dancefloorId]
+        );
+
+        await pool.query('COMMIT');
+
+        res.status(200).json({ message: 'Dancefloor deleted successfully.' });
+    } catch (error) {
+        await pool.query('ROLLBACK');
+        console.error('Error deleting dancefloor:', error);
+        sendErrorResponse(res, 500, 'Failed to delete dancefloor.');
+    }
+};
