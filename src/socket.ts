@@ -72,43 +72,44 @@ export const initializeSocket = (server: any) => {
 
     // handle messages
     socket.on('sendMessage', async (data) => {
-      const { dancefloorId, message } = data;
-
+      const { dancefloorId, message, djId } = data;
+    
       if (!dancefloorId || !message) {
         console.error('Missing dancefloorId or message');
         return;
       }
-
+    
       if (message.length > 300) {
         socket.emit('messageError', { message: 'Message exceeds maximum length of 300 characters.' });
         return;
       }
-
+    
       try {
         const result = await pool.query(
-          'INSERT INTO messages (dancefloor_id, message, created_at) VALUES ($1, $2, NOW()) RETURNING *',
-          [dancefloorId, message]
+          'INSERT INTO messages (dancefloor_id, message, dj_id, created_at) VALUES ($1, $2, $3, NOW()) RETURNING *',
+          [dancefloorId, message, djId || null]
         );
-
+    
         const newMessage = result.rows[0];
-
+    
         // increment and fetch messages count
         const countResult = await pool.query(
           'UPDATE dancefloors SET messages_count = messages_count + 1 WHERE id = $1 RETURNING messages_count',
           [dancefloorId]
         );
-
+    
         const messagesCount = countResult.rows[0].messages_count;
-
-        // emit new message and updated count
+    
+        // emit new message and updated count to all users in the dancefloor
         io.to(dancefloorId).emit('sendMessage', newMessage);
         io.to(dancefloorId).emit('updateMessagesCount', { messagesCount });
-
+    
       } catch (error) {
         console.error('Error saving message:', error);
         socket.emit('messageError', { message: 'Failed to send message.' });
       }
     });
+    
 
     // handle status updates
     socket.on('statusUpdate', async (data) => {
