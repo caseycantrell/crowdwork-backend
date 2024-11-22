@@ -4,6 +4,7 @@ import {
   stopDancefloor,
   getDancefloorDetails,
   reactivateDancefloor,
+  renameDancefloor,
   deleteDancefloor
 } from '../controllers/dancefloorController';
 
@@ -13,6 +14,7 @@ router.post('/start-dancefloor', startDancefloor);
 router.post('/stop-dancefloor', stopDancefloor);
 router.get('/dancefloor/:dancefloorId', getDancefloorDetails);
 router.post('/dancefloor/:dancefloorId/reactivate', reactivateDancefloor);
+router.patch('/dancefloor/rename', renameDancefloor);
 router.delete('/dancefloor/:dancefloorId', deleteDancefloor);
 
 export default router;
