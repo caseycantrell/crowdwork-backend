@@ -117,6 +117,31 @@ export const reactivateDancefloor = async (req: Request, res: Response) => {
     }
 };
 
+//renaming a dancefloor
+export const renameDancefloor = async (req: Request, res: Response) => {
+    const { dancefloorId, name } = req.body;
+
+    if (!dancefloorId) {
+        return sendErrorResponse(res, 400, 'Dancefloor ID is required.');
+    }
+
+    try {
+        const result = await pool.query(
+            'UPDATE dancefloors SET name = $1 WHERE id = $2 RETURNING name',
+            [name || null, dancefloorId]
+        );
+
+        if (result.rowCount === 0) {
+            return sendErrorResponse(res, 404, 'Dancefloor not found.');
+        }
+
+        res.status(200).json({ message: 'Dancefloor renamed successfully', name: result.rows[0].name });
+    } catch (error) {
+        console.error('Error renaming dancefloor:', error);
+        sendErrorResponse(res, 500, 'Failed to rename dancefloor.');
+    }
+};
+
 // delete a dancefloor
 export const deleteDancefloor = async (req: Request, res: Response) => {
     const { dancefloorId } = req.params;
