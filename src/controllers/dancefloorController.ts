@@ -121,14 +121,14 @@ export const reactivateDancefloor = async (req: Request, res: Response) => {
 export const renameDancefloor = async (req: Request, res: Response) => {
     const { dancefloorId, name } = req.body;
 
-    if (!dancefloorId || !name) {
-        return sendErrorResponse(res, 400, 'Dancefloor ID and name are required.');
+    if (!dancefloorId) {
+        return sendErrorResponse(res, 400, 'Dancefloor ID is required.');
     }
 
     try {
         const result = await pool.query(
             'UPDATE dancefloors SET name = $1 WHERE id = $2 RETURNING name',
-            [name, dancefloorId]
+            [name || null, dancefloorId]
         );
 
         if (result.rowCount === 0) {
