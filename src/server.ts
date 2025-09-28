@@ -11,7 +11,7 @@ if (!process.env.DATABASE_URL) {
   console.log('DATABASE_URL is not set, running in development mode.');
 }
 
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT || 3000;
 
 // create HTTP server
 const server = http.createServer(app);
@@ -20,7 +20,7 @@ const server = http.createServer(app);
 initializeSocket(server);
 
 // start the server
-server.listen(PORT, () => {
+server.listen(Number(PORT), "0.0.0.0", () => {
   console.log(`Server running on port ${PORT}`);
 }).on('error', (err: Error) => {
   console.error('Failed to start server:', err);

@@ -29,6 +29,7 @@
     "uuid": "^10.0.0"
   },
   "devDependencies": {
+    "@flydotio/dockerfile": "^0.7.10",
     "@types/bcrypt": "^5.0.2",
     "@types/express-session": "^1.18.0",
     "@types/node": "^22.7.4",
